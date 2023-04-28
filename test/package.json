@@ -1,0 +1,15 @@
+{
+  "name": "server-control-s3-tester",
+  "version": "0.0.1",
+  "private": true,
+  "main": "server.js",
+  "scripts": {
+    "pretty": "prettier --write *.js"
+  },
+  "nodemonConfig": {
+    "watch": ["../src", "./"]
+  },
+  "dependencies": {
+    "express": "4.18.2"
+  }
+}

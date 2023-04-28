@@ -1,0 +1,34 @@
+{
+  "name": "server-control-s3",
+  "version": "0.0.1",
+  "author": {
+    "name": "Jim Lake"
+  },
+  "license": "MIT",
+  "description": "Easy updating of Amazon AWS instances from s3 packages",
+  "keywords": [
+    "aws",
+    "update",
+    "asg",
+    "ec2"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:jim-lake/server-control-s3.git"
+  },
+  "files": [
+    "src/*"
+  ],
+  "main": "src/index.js",
+  "scripts": {
+    "lint": "eslint src --ext js",
+    "pretty": "prettier --write src/*.js"
+  },
+  "dependencies": {
+    "async": "3.2.4",
+    "aws-sdk": "2.1366.0",
+    "body-parser": "1.20.2",
+    "cookie-parser": "1.4.6",
+    "request": "2.88.2"
+  }
+}
