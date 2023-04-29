@@ -235,7 +235,6 @@ function _getGroupData(done) {
           list,
           (instance, done) => {
             _getServerData(instance, (err, body) => {
-              console.log(instance.InstanceId, err, body);
               instance.git_commit_hash = body && body.git_commit_hash;
               instance.uptime = body && body.uptime;
               done(err);
