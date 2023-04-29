@@ -2,6 +2,7 @@
 
 if [ "$#" -lt 1 ]; then
   echo "Usage: $(basename $0) <url>"
+  echo " - script should be run from the repo dir"
   exit 1
 fi
 
@@ -16,6 +17,15 @@ DATE=$(date +%Y%m%d-%H%M%S)
 TMP_DIR="$PARENT_DIR/$ARCHIVE_BASE_NAME-$DATE"
 
 echo "updating repo with url: $URL"
+echo " - whoami: $(whoami)"
+echo " - HOME: $HOME"
+echo " - REPO_DIR: $REPO_DIR"
+echo " - OLD_TARGET: $OLD_TARGET"
+
+if ! [[ -L "$REPO_DIR" ]]; then
+  echo " - WARNING!!! REPO_DIR is not a link, this script wont work"
+fi
+
 echo " - mkdir for tmp dir: $TMP_DIR"
 mkdir "$TMP_DIR"
 if [ "$?" -ne 0 ]; then

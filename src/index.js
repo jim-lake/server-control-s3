@@ -20,7 +20,7 @@ const DEFAULT_CONFIG = {
   service_port: 80,
   http_proto: 'http',
   auth_middleware: false,
-  repo_dir: '.',
+  repo_dir: process.env.PWD,
   error_log: console.error,
   update_launch_default: true,
 };
