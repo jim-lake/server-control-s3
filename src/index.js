@@ -22,6 +22,7 @@ const DEFAULT_CONFIG = {
   auth_middleware: false,
   repo_dir: '.',
   error_log: console.error,
+  update_launch_default: true,
 };
 const g_config = {};
 let g_gitCommitHash = false;
@@ -139,16 +140,10 @@ function _groupData(req, res) {
     if (result.auto_scale_group) {
       body.auto_scale_group = {
         AutoScalingGroupName: result.auto_scale_group.AutoScalingGroupName,
-        launch_config: {
-          LaunchConfigurationName:
-            result.auto_scale_group.LaunchConfigurationName,
-        },
+        LaunchTemplate: result.auto_scale_group.LaunchTemplate,
       };
-      if (result.launch_config) {
-        body.auto_scale_group.launch_config.ImageId =
-          result.launch_config.ImageId;
-        body.auto_scale_group.launch_config.UserData =
-          result.launch_config.UserData;
+      if (result.launch_template) {
+        body.launch_template = result.launch_template;
       }
     }
 
@@ -161,11 +156,13 @@ function _groupData(req, res) {
 }
 
 function _getGroupData(done) {
+  const autoscaling = _getAutoscaling();
+  const ec2 = _getEC2();
   let latest = false;
   let InstanceId = false;
   let asg = false;
   let instance_list = false;
-  let launch_config = false;
+  let launch_template = false;
 
   async.series(
     [
@@ -189,7 +186,6 @@ function _getGroupData(done) {
         });
       },
       (done) => {
-        const autoscaling = _getAutoscaling();
         autoscaling.describeAutoScalingGroups({}, (err, data) => {
           if (err) {
             _errorLog('_getGroupData: find asg err:', err);
@@ -208,34 +204,6 @@ function _getGroupData(done) {
         });
       },
       (done) => {
-        const autoscaling = _getAutoscaling();
-        const opts = {
-          LaunchConfigurationNames: [asg.LaunchConfigurationName],
-        };
-        autoscaling.describeLaunchConfigurations(opts, (err, data) => {
-          if (err) {
-            _errorLog('_getGroupData: launch config fetch error:', err);
-          } else {
-            if (data.LaunchConfigurations.length > 0) {
-              launch_config = data.LaunchConfigurations[0];
-              if (launch_config.UserData) {
-                const s = Buffer.from(
-                  launch_config.UserData,
-                  'base64'
-                ).toString('ascii');
-                launch_config.UserData = s;
-              } else {
-                launch_config.UserData = '';
-              }
-            } else {
-              err = 'launch_config_not_found';
-            }
-          }
-          done(err);
-        });
-      },
-      (done) => {
-        const ec2 = _getEC2();
         const opts = {
           InstanceIds: asg.Instances.map((i) => i.InstanceId),
         };
@@ -267,6 +235,7 @@ function _getGroupData(done) {
           list,
           (instance, done) => {
             _getServerData(instance, (err, body) => {
+              console.log(instance.InstanceId, err, body);
               instance.git_commit_hash = body && body.git_commit_hash;
               instance.uptime = body && body.uptime;
               done(err);
@@ -275,13 +244,34 @@ function _getGroupData(done) {
           done
         );
       },
+      (done) => {
+        const opts = {
+          LaunchTemplateId: asg.LaunchTemplate.LaunchTemplateId,
+          Versions: [asg.LaunchTemplate.Version],
+        };
+        ec2.describeLaunchTemplateVersions(opts, (err, data) => {
+          if (err) {
+            _errorLog('_getGroupData: launch template fetch error:', err);
+          } else if (data && data.LaunchTemplateVersions.length === 0) {
+            err = 'launch_template_not_found';
+          } else {
+            launch_template = data.LaunchTemplateVersions[0];
+            const ud = launch_template.LaunchTemplateData.UserData;
+            if (ud) {
+              const s = Buffer.from(ud, 'base64').toString('utf8');
+              launch_template.LaunchTemplateData.UserData = s;
+            }
+          }
+          done(err);
+        });
+      },
     ],
     (err) => {
       const ret = {
         latest,
         InstanceId,
         auto_scale_group: asg,
-        launch_config,
+        launch_template,
         instance_list,
       };
       done(err, ret);
@@ -306,7 +296,7 @@ function _getServerData(instance, done) {
       secret: g_config.secret,
     },
   };
-  webRequest(opts, (err, response, body) => {
+  webRequest(opts, (err, body) => {
     if (err) {
       _errorLog('_getServerData: request err:', err);
     }
@@ -358,26 +348,17 @@ function _updateGroup(req, res) {
     const key_name = g_config.sc_update_url_key_name;
     const ami_id = req.body.ami_id || req.query.ami_id || false;
 
-    const autoscaling = _getAutoscaling();
-    let service_data = false;
-    let launch_config_name = false;
+    const ec2 = _getEC2();
+    let group_data = false;
     let old_data = '';
+    let new_version;
     async.series(
       [
         (done) => {
           _getGroupData((err, result) => {
             if (!err) {
-              service_data = result;
-              const old_name = result.launch_config.LaunchConfigurationName;
-              const match = old_name.match(/([^\d]*)(\d*)/);
-              if (match.length < 3) {
-                launch_config_name = old_name + '-2';
-              } else {
-                const new_index = parseInt(match[2]) + 1;
-                launch_config_name = match[1] + new_index;
-              }
-
-              const data = result.launch_config.UserData;
+              group_data = result;
+              const data = result.launch_template.LaunchTemplateData.UserData;
               data.split('\n').forEach((line) => {
                 if (line.length && line.indexOf(key_name) === -1) {
                   old_data += line + '\n';
@@ -392,49 +373,59 @@ function _updateGroup(req, res) {
         },
         (done) => {
           const new_data = `${old_data}${key_name}=${url}\n`;
-
-          const lc = service_data.launch_config;
           const opts = {
-            LaunchConfigurationName: launch_config_name,
-            ImageId: ami_id || lc.ImageId,
-            SecurityGroups: lc.SecurityGroups,
-            BlockDeviceMappings: lc.BlockDeviceMappings,
-            InstanceType: lc.InstanceType,
-            InstanceMonitoring: lc.InstanceMonitoring,
-            EbsOptimized: lc.EbsOptimized,
-            AssociatePublicIpAddress: lc.AssociatePublicIpAddress,
-            PlacementTenancy: lc.PlacementTenancy,
-            InstanceId: service_data.InstanceId,
-            UserData: Buffer.from(new_data, 'utf8').toString('base64'),
+            LaunchTemplateId: group_data.launch_template.LaunchTemplateId,
+            SourceVersion: String(group_data.launch_template.VersionNumber),
+            LaunchTemplateData: {
+              UserData: Buffer.from(new_data, 'utf8').toString('base64'),
+            },
           };
-          autoscaling.createLaunchConfiguration(opts, (err) => {
+          if (ami_id) {
+            opts.LaunchTemplateData.ImageId = ami_id;
+          }
+          ec2.createLaunchTemplateVersion(opts, (err, data) => {
             if (err) {
-              _errorLog('_updateGroup: failed to create lc, err:', err);
+              _errorLog('_updateGroup: failed to create version, err:', err);
+            } else {
+              new_version = data.LaunchTemplateVersion.VersionNumber;
             }
             done(err);
           });
         },
         (done) => {
-          const opts = {
-            AutoScalingGroupName:
-              service_data.auto_scale_group.AutoScalingGroupName,
-            LaunchConfigurationName: launch_config_name,
-          };
-          autoscaling.updateAutoScalingGroup(opts, (err) => {
-            if (err) {
-              _errorLog('_updateGroup: failed to update asg, err:', err);
-            }
-            done(err);
-          });
+          if (g_config.update_launch_default) {
+            const opts = {
+              DefaultVersion: String(new_version),
+              LaunchTemplateId: group_data.launch_template.LaunchTemplateId,
+            };
+            ec2.modifyLaunchTemplate(opts, function (err) {
+              if (err) {
+                _errorLog('_updateGroup: failed to update default, err:', err);
+              }
+              done(err);
+            });
+          } else {
+            done();
+          }
         },
         (done) => {
           async.each(
-            service_data.instance_list,
+            group_data.instance_list,
             (instance, done) => {
-              if (instance.InstanceId === service_data.InstanceId) {
+              if (instance.InstanceId === group_data.InstanceId) {
                 done();
               } else {
-                _updateInstance(hash, instance, done);
+                _updateInstance(hash, instance, (err) => {
+                  if (err) {
+                    _errorLog(
+                      '_updateGroup: update instance:',
+                      instance.InstanceId,
+                      'err:',
+                      err
+                    );
+                  }
+                  done(err);
+                });
               }
             },
             done
@@ -443,10 +434,13 @@ function _updateGroup(req, res) {
       ],
       (err) => {
         if (err) {
-          res.status(500).send(err);
+          res.status(500).send({
+            err,
+            launch_template_version: new_version,
+          });
         } else {
           const body = {
-            launch_config_name,
+            launch_template_version: new_version,
             _msg: 'Successful updating all servers, restarting this server.',
           };
           res.send(body);
@@ -479,12 +473,7 @@ function _updateInstance(hash, instance, done) {
             secret: g_config.secret,
           },
         };
-        webRequest(opts, (err) => {
-          if (err) {
-            _errorLog('_updateInstance: request err:', err);
-          }
-          done(err);
-        });
+        webRequest(opts, done);
       },
       (done) => _waitForServer({ instance, hash }, done),
     ],
@@ -505,7 +494,7 @@ function _waitForServer(params, done) {
           found_hash = true;
           done(null);
         } else if (count > MAX_WAIT_COUNT) {
-          done('too_many_tires');
+          done('too_many_tries');
         } else {
           setTimeout(done, SERVER_WAIT_MS);
         }

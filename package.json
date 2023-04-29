@@ -1,6 +1,6 @@
 {
   "name": "server-control-s3",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "author": {
     "name": "Jim Lake"
   },
@@ -17,7 +17,8 @@
     "url": "git@github.com:jim-lake/server-control-s3.git"
   },
   "files": [
-    "src/*"
+    "src/*",
+    "scripts/*"
   ],
   "main": "src/index.js",
   "scripts": {

@@ -32,19 +32,42 @@ sc.init(app, {
       ]
     },
     {
+      "Sid": "Stmt1412101976001",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:DescribeLaunchTemplateVersions",
+        "ec2:ModifyLaunchTemplate",
+        "ec2:CreateLaunchTemplateVersion"
+      ],
+      "Resource": [
+        "*"
+      ]
+    },
+    {
       "Sid": "Stmt1412102095000",
       "Effect": "Allow",
       "Action": [
-        "autoscaling:CreateLaunchConfiguration",
-        "autoscaling:DescribeAutoScalingGroups",
-        "autoscaling:DescribeLaunchConfigurations",
-        "autoscaling:UpdateAutoScalingGroup"
+        "autoscaling:DescribeAutoScalingGroups"
       ],
       "Resource": [
         "*"
       ]
     }
   ]
+}
+```
+
+* also make sure you role can passrole itself
+```json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": "iam:PassRole",
+            "Resource": "arn:aws:iam::833562685972:role/<rolename>"
+        }
+    ]
 }
 ```
 

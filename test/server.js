@@ -23,6 +23,7 @@ const opts = {
   asg_name: process.env.ASG_NAME,
   remote_repo_prefix: process.env.S3_REPO_PREFIX,
   metadata_opts,
+  repo_dir: process.env.TEST_REPO_DIR,
 };
 serverControl.init(app, opts);
 
