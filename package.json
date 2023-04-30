@@ -1,6 +1,6 @@
 {
   "name": "server-control-s3",
-  "version": "0.0.11",
+  "version": "0.0.12",
   "author": {
     "name": "Jim Lake"
   },
@@ -18,7 +18,8 @@
   },
   "files": [
     "src/*",
-    "scripts/*"
+    "scripts/*",
+    "npm-shrinkwrap.json"
   ],
   "main": "src/index.js",
   "scripts": {
