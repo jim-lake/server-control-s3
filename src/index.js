@@ -440,18 +440,14 @@ function _updateGroup(req, res) {
           }
         },
         (done) => {
-          console.log('update all');
           let group_err;
           async.each(
             group_data.instance_list,
             (instance, done) => {
               if (instance.InstanceId === group_data.InstanceId) {
-                console.log('skip self:', instance.InstanceId);
                 done();
               } else {
-                console.log('update:', instance.InstanceId);
                 _updateInstance(hash, instance, (err) => {
-                  console.log('update done:', instance.InstanceId, err);
                   if (err) {
                     _errorLog(
                       '_updateGroup: update instance:',
@@ -470,7 +466,6 @@ function _updateGroup(req, res) {
           );
         },
         (done) => {
-          console.log('update self');
           _updateSelf(hash, (err) => {
             server_result[group_data.InstanceId] = err;
             done(err);
@@ -518,7 +513,6 @@ function _updateInstance(hash, instance, done) {
             secret: g_config.secret,
           },
         };
-        console.log('_updateInstance:', instance.InstanceId);
         webRequest(opts, done);
       },
       (done) => _waitForServer({ instance, hash }, done),
