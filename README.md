@@ -65,7 +65,7 @@ sc.init(app, {
         {
             "Effect": "Allow",
             "Action": "iam:PassRole",
-            "Resource": "arn:aws:iam::833562685972:role/<rolename>"
+            "Resource": "arn:aws:iam::<orgid>:role/<rolename>"
         }
     ]
 }
