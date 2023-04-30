@@ -9,6 +9,7 @@ const { join: pathJoin } = require('path');
 const { webRequest, headUrl, fetchFileContents } = require('./request');
 
 exports.init = init;
+exports.getGitCommitHash = getGitCommitHash;
 
 const MAX_WAIT_COUNT = 12;
 const SERVER_WAIT_MS = 10 * 1000;
@@ -21,6 +22,7 @@ const DEFAULT_CONFIG = {
   http_proto: 'http',
   auth_middleware: false,
   repo_dir: process.env.PWD,
+  console_log: console.log,
   error_log: console.error,
   update_launch_default: true,
 };
@@ -39,7 +41,7 @@ function init(app, config) {
   g_config.remote_repo_prefix.replace(/\/$/, '');
 
   _getAwsRegion();
-  _getGitCommitHash();
+  getGitCommitHash();
   const { route_prefix } = g_config;
 
   app.get(
@@ -114,7 +116,7 @@ function _secretOrAuth(req, res, next) {
 function _serverData(req, res) {
   res.header('Cache-Control', 'no-cache, no-store, must-revalidate');
 
-  _getGitCommitHash((err, git_commit_hash) => {
+  getGitCommitHash((err, git_commit_hash) => {
     const body = {
       git_commit_hash,
       uptime: process.uptime(),
@@ -527,7 +529,7 @@ function _getLatest(done) {
     done(err, body && body.trim());
   });
 }
-function _getGitCommitHash(done) {
+function getGitCommitHash(done) {
   if (g_gitCommitHash) {
     done && done(null, g_gitCommitHash);
   } else {
@@ -537,7 +539,7 @@ function _getGitCommitHash(done) {
         err = 'no_result';
       }
       if (err) {
-        _errorLog('_getGitCommitHash: err:', err, 'file:', file);
+        _errorLog('getGitCommitHash: err:', err, 'file:', file);
       } else {
         g_gitCommitHash = result.trim();
       }
@@ -581,7 +583,7 @@ function _errorLog(...args) {
   g_config.error_log(...args);
 }
 function _defaultRestartFunction() {
-  console.log('Successful update, restarting server');
+  g_config.console_log('server-control: updated server, restarting...');
   setTimeout(function () {
     process.exit(0);
   }, 100);
