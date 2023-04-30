@@ -29,6 +29,7 @@ const DEFAULT_CONFIG = {
 };
 const g_config = {};
 let g_gitCommitHash = false;
+let g_updateHash = '';
 
 function init(app, config) {
   Object.assign(g_config, DEFAULT_CONFIG, config);
@@ -339,12 +340,15 @@ function _updateSelf(hash, done) {
         stderr
       );
       err = 'update_failed';
+    } else {
+      g_updateHash = hash;
     }
     done(err);
   });
 }
 function _removeOldTarget() {
-  const cmd = `${__dirname}/../scripts/remove_old_target.sh`;
+  const dir = g_config.repo_dir;
+  const cmd = `${__dirname}/../scripts/remove_old_target.sh ${dir}`;
   child_process.exec(cmd, (err, stdout, stderr) => {
     if (err) {
       _errorLog(
@@ -436,14 +440,18 @@ function _updateGroup(req, res) {
           }
         },
         (done) => {
+          console.log('update all');
           let group_err;
           async.each(
             group_data.instance_list,
             (instance, done) => {
               if (instance.InstanceId === group_data.InstanceId) {
+                console.log('skip self:', instance.InstanceId);
                 done();
               } else {
+                console.log('update:', instance.InstanceId);
                 _updateInstance(hash, instance, (err) => {
+                  console.log('update done:', instance.InstanceId, err);
                   if (err) {
                     _errorLog(
                       '_updateGroup: update instance:',
@@ -462,6 +470,7 @@ function _updateGroup(req, res) {
           );
         },
         (done) => {
+          console.log('update self');
           _updateSelf(hash, (err) => {
             server_result[group_data.InstanceId] = err;
             done(err);
@@ -509,6 +518,7 @@ function _updateInstance(hash, instance, done) {
             secret: g_config.secret,
           },
         };
+        console.log('_updateInstance:', instance.InstanceId);
         webRequest(opts, done);
       },
       (done) => _waitForServer({ instance, hash }, done),
@@ -518,17 +528,14 @@ function _updateInstance(hash, instance, done) {
 }
 function _waitForServer(params, done) {
   const { instance, hash } = params;
-  let found_hash = false;
   let count = 0;
 
-  async.until(
-    () => found_hash,
+  async.forever(
     (done) => {
       count++;
       _getServerData(instance, (err, body) => {
         if (!err && body && body.git_commit_hash === hash) {
-          found_hash = true;
-          done(null);
+          done('stop');
         } else if (count > MAX_WAIT_COUNT) {
           done('too_many_tries');
         } else {
@@ -536,7 +543,12 @@ function _waitForServer(params, done) {
         }
       });
     },
-    done
+    (err) => {
+      if (err === 'stop') {
+        err = null;
+      }
+      done(err);
+    }
   );
 }
 
@@ -600,7 +612,11 @@ function _errorLog(...args) {
   g_config.error_log(...args);
 }
 function _defaultRestartFunction() {
-  g_config.console_log('server-control: updated server, restarting...');
+  g_config.console_log(
+    'server-control: updated to: ',
+    g_updateHash,
+    'restarting...'
+  );
   setTimeout(function () {
     process.exit(0);
   }, 100);
