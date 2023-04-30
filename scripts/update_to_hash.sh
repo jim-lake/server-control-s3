@@ -79,7 +79,7 @@ if [ "$?" -ne 0 ]; then
   exit 6
 fi
 
-rm -rf "$OLD_TARGET"
+echo "$OLD_TARGET" > "$TMP_DIR/.sc_old_target"
 
 popd
 exit 0

@@ -25,6 +25,7 @@ const DEFAULT_CONFIG = {
   console_log: console.log,
   error_log: console.error,
   update_launch_default: true,
+  remove_old_target: true,
 };
 const g_config = {};
 let g_gitCommitHash = false;
@@ -43,6 +44,9 @@ function init(app, config) {
   _getAwsRegion();
   getGitCommitHash();
   const { route_prefix } = g_config;
+  if (g_config.remove_old_target) {
+    _removeOldTarget();
+  }
 
   app.get(
     route_prefix + '/server_data',
@@ -339,6 +343,21 @@ function _updateSelf(hash, done) {
     done(err);
   });
 }
+function _removeOldTarget() {
+  const cmd = `${__dirname}/../scripts/remove_old_target.sh`;
+  child_process.exec(cmd, (err, stdout, stderr) => {
+    if (err) {
+      _errorLog(
+        '_removeOldTarget: remove_old_target.sh failed with err:',
+        err,
+        'stdout:',
+        stdout,
+        'stderr:',
+        stderr
+      );
+    }
+  });
+}
 
 function _updateGroup(req, res) {
   res.header('Cache-Control', 'no-cache, no-store, must-revalidate');
@@ -450,18 +469,16 @@ function _updateGroup(req, res) {
         },
       ],
       (err) => {
+        const body = {
+          err,
+          server_result,
+          launch_template_version: new_version,
+        };
         if (err) {
-          res.status(500).send({
-            err,
-            server_result,
-            launch_template_version: new_version,
-          });
+          res.status(500).send(body);
         } else {
-          const body = {
-            server_result,
-            launch_template_version: new_version,
-            _msg: 'Successful updating all servers, restarting this server.',
-          };
+          body._msg =
+            'Successful updating all servers, restarting this server.';
           res.send(body);
           g_config.restart_function();
         }
