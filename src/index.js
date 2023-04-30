@@ -6,7 +6,7 @@ const child_process = require('child_process');
 const cookie_parser = require('cookie-parser');
 const fs = require('fs');
 const { join: pathJoin } = require('path');
-const { webRequest, fetchFileContents } = require('./request');
+const { webRequest, headUrl, fetchFileContents } = require('./request');
 
 exports.init = init;
 
@@ -310,8 +310,8 @@ function _updateServer(req, res) {
       if (err) {
         res.status(500).send(err);
       } else {
-        g_config.restart_function();
         res.send('Restarting server');
+        g_config.restart_function();
       }
     });
   } else {
@@ -351,6 +351,7 @@ function _updateGroup(req, res) {
     let group_data = false;
     let old_data = '';
     let new_version;
+    const server_result = {};
     async.series(
       [
         (done) => {
@@ -368,7 +369,13 @@ function _updateGroup(req, res) {
           });
         },
         (done) => {
-          _updateSelf(hash, done);
+          headUrl(url, (err) => {
+            if (err) {
+              _errorLog('_updateGroup: head url:', url, 'err:', err);
+              err = 'url_not_found';
+            }
+            done(err);
+          });
         },
         (done) => {
           const new_data = `${old_data}${key_name}=${url}\n`;
@@ -408,6 +415,7 @@ function _updateGroup(req, res) {
           }
         },
         (done) => {
+          let group_err;
           async.each(
             group_data.instance_list,
             (instance, done) => {
@@ -422,23 +430,33 @@ function _updateGroup(req, res) {
                       'err:',
                       err
                     );
+                    group_err = err;
                   }
-                  done(err);
+                  server_result[instance.InstanceId] = err;
+                  done();
                 });
               }
             },
-            done
+            () => done(group_err)
           );
+        },
+        (done) => {
+          _updateSelf(hash, (err) => {
+            server_result[group_data.InstanceId] = err;
+            done(err);
+          });
         },
       ],
       (err) => {
         if (err) {
           res.status(500).send({
             err,
+            server_result,
             launch_template_version: new_version,
           });
         } else {
           const body = {
+            server_result,
             launch_template_version: new_version,
             _msg: 'Successful updating all servers, restarting this server.',
           };

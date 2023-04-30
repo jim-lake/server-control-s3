@@ -2,6 +2,7 @@ const AWS = require('aws-sdk');
 const request = require('request');
 
 exports.webRequest = webRequest;
+exports.headUrl = headUrl;
 exports.fetchFileContents = fetchFileContents;
 
 function webRequest(opts, done) {
@@ -12,6 +13,17 @@ function webRequest(opts, done) {
     }
     done(err, body);
   });
+}
+function headUrl(url, done) {
+  if (url.indexOf('http') === 0) {
+    webRequest({ url, method: 'HEAD' }, done);
+  } else {
+    const parts = url.match(/s3:\/\/([^/]*)\/(.*)/);
+    const Bucket = parts && parts[1];
+    const Key = parts && parts[2];
+    const s3 = new AWS.S3();
+    s3.headObject({ Bucket, Key }, done);
+  }
 }
 function fetchFileContents(url, done) {
   if (url.indexOf('http') === 0) {
