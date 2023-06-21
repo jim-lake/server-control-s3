@@ -251,22 +251,25 @@ function _getGroupData(done) {
         );
       },
       (done) => {
+        const lt =
+          asg.LaunchTemplate ||
+          asg.MixedInstancesPolicy?.LaunchTemplate?.LaunchTemplateSpecification;
         const opts = {
-          LaunchTemplateId: asg.LaunchTemplate.LaunchTemplateId,
-          Versions: [asg.LaunchTemplate.Version],
+          LaunchTemplateId: lt?.LaunchTemplateId,
+          Versions: [lt?.Version],
         };
         ec2.describeLaunchTemplateVersions(opts, (err, data) => {
           if (err) {
             _errorLog('_getGroupData: launch template fetch error:', err);
-          } else if (data && data.LaunchTemplateVersions.length === 0) {
-            err = 'launch_template_not_found';
-          } else {
+          } else if (data?.LaunchTemplateVersions?.length > 0) {
             launch_template = data.LaunchTemplateVersions[0];
             const ud = launch_template.LaunchTemplateData.UserData;
             if (ud) {
               const s = Buffer.from(ud, 'base64').toString('utf8');
               launch_template.LaunchTemplateData.UserData = s;
             }
+          } else {
+            err = 'launch_template_not_found';
           }
           done(err);
         });
