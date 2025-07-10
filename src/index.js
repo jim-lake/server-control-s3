@@ -204,6 +204,7 @@ function _getGroupData(done) {
               );
             });
             if (!asg) {
+              _errorLog('_getGroupData: asg not found:', g_config.asg_name);
               err = 'asg_not_found';
             }
           }

@@ -1,11 +1,17 @@
 const express = require('express');
-const serverControl = require('../src/index.js');
+const serverControl = require('../dist/server_control.js');
+
+const config = require('./config.json');
 
 const port = 3000;
 const app = express();
 
 app.get('/', (req, res) => {
   res.send('Hello World!');
+});
+
+app.get('/dump', (req, res) => {
+  res.send({ header: req.headers, query: req.query, body: req.body });
 });
 
 let metadata_opts;
@@ -17,13 +23,13 @@ if (process.platform === 'darwin') {
 }
 
 const opts = {
-  secret: process.env.SECRET || 'secure',
+  secret: config.SECRET || 'secure',
   port: 80,
-  region: process.env.AWS_REGION,
-  asg_name: process.env.ASG_NAME,
-  remote_repo_prefix: process.env.S3_REPO_PREFIX,
+  region: config.AWS_REGION,
+  asg_name: config.ASG_NAME,
+  remote_repo_prefix: config.S3_REPO_PREFIX,
   metadata_opts,
-  repo_dir: process.env.TEST_REPO_DIR,
+  repo_dir: config.TEST_REPO_DIR,
 };
 serverControl.init(app, opts);
 

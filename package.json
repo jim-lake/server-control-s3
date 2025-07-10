@@ -17,12 +17,13 @@
     "url": "git@github.com:jim-lake/server-control-s3.git"
   },
   "files": [
-    "src/*",
+    "dist/*",
     "scripts/*",
     "npm-shrinkwrap.json"
   ],
-  "main": "src/index.js",
+  "main": "dist/server_control.js",
   "scripts": {
+    "build": "rollup -c",
     "lint": "eslint src --ext js",
     "pretty": "prettier --write src/*.js"
   },
@@ -32,5 +33,10 @@
     "body-parser": "1.20.2",
     "cookie-parser": "1.4.6",
     "request": "2.88.2"
+  },
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^28.0.6",
+    "@rollup/plugin-node-resolve": "^16.0.1",
+    "rollup": "^4.44.2"
   }
 }

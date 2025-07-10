@@ -1,11 +1,16 @@
 const AWS = require('aws-sdk');
 const request = require('request');
 
+const TIMEOUT = 15 * 1000;
+
 exports.webRequest = webRequest;
 exports.headUrl = headUrl;
 exports.fetchFileContents = fetchFileContents;
 
 function webRequest(opts, done) {
+  if (!opts.timeout) {
+    opts.timeout = TIMEOUT;
+  }
   request(opts, (err, response, body) => {
     const statusCode = response && response.statusCode;
     if (!err && (statusCode < 200 || statusCode > 299)) {
