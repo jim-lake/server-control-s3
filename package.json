@@ -26,7 +26,8 @@
     "build": "rollup -c",
     "lint": "eslint src --ext js && eslint test --ext ts && eslint example --ext js",
     "pretty": "prettier --write \"src/*.js\" \"example/*.js\" \"test/*.ts\"",
-    "test": "NODE_OPTIONS='--import=tsx' mocha --require test/local_setup.ts \"test/*.test.ts\""
+    "test": "npm run build && npm run test-only",
+    "test-only": "NODE_OPTIONS='--import=tsx' mocha --require test/local_setup.ts \"test/*.test.ts\""
   },
   "dependencies": {
     "async": "3.2.4",
