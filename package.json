@@ -24,8 +24,9 @@
   "main": "dist/server_control.js",
   "scripts": {
     "build": "rollup -c",
-    "lint": "eslint src --ext js",
-    "pretty": "prettier --write src/*.js"
+    "lint": "eslint src --ext js && eslint test --ext ts && eslint example --ext js",
+    "pretty": "prettier --write \"src/*.js\" \"example/*.js\" \"test/*.ts\"",
+    "test": "NODE_OPTIONS='--import=tsx' mocha --require test/local_setup.ts \"test/*.test.ts\""
   },
   "dependencies": {
     "async": "3.2.4",
@@ -37,6 +38,18 @@
   "devDependencies": {
     "@rollup/plugin-commonjs": "^28.0.6",
     "@rollup/plugin-node-resolve": "^16.0.1",
-    "rollup": "^4.44.2"
+    "@types/chai": "^5.2.2",
+    "@types/mocha": "^10.0.10",
+    "@types/supertest": "^6.0.3",
+    "@typescript-eslint/eslint-plugin": "^8.36.0",
+    "@typescript-eslint/parser": "^8.36.0",
+    "chai": "^5.2.0",
+    "eslint": "^9.30.1",
+    "eslint-plugin-import": "^2.32.0",
+    "mocha": "^11.7.1",
+    "rollup": "^4.44.2",
+    "supertest": "^7.1.2",
+    "tsx": "^4.20.3",
+    "typescript": "^5.8.3"
   }
 }
