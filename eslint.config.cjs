@@ -3,6 +3,8 @@ module.exports = [
     files: ['**/*.ts'],
     languageOptions: {
       globals: {
+        __dirname: true,
+        Buffer: true,
         process: true,
         setTimeout: true,
         clearTimeout: true,

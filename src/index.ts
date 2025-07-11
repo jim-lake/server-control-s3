@@ -1,29 +1,50 @@
-const asyncEach = require('async/each');
-const asyncForever = require('async/forever');
-const asyncSeries = require('async/series');
+import asyncEach from 'async/each';
+import asyncForever from 'async/forever';
+import asyncSeries from 'async/series';
 
-const {
+import {
   AutoScalingClient,
   DescribeAutoScalingGroupsCommand,
-} = require('@aws-sdk/client-auto-scaling');
-const {
+} from '@aws-sdk/client-auto-scaling';
+import {
   EC2Client,
   DescribeInstancesCommand,
   DescribeLaunchTemplateVersionsCommand,
   CreateLaunchTemplateVersionCommand,
   ModifyLaunchTemplateCommand,
-} = require('@aws-sdk/client-ec2');
-const child_process = require('node:child_process');
-const fs = require('node:fs');
-const { join: pathJoin } = require('node:path');
-const { webRequest, headUrl, fetchFileContents } = require('./request');
+} from '@aws-sdk/client-ec2';
+import * as child_process from 'node:child_process';
+import * as fs from 'node:fs';
+import { join as pathJoin } from 'node:path';
+import * as request from './request';
 
-exports.init = init;
-exports.getGitCommitHash = getGitCommitHash;
+export default {
+  init,
+  getGitCommitHash,
+};
 
 const MAX_WAIT_COUNT = 12;
 const SERVER_WAIT_MS = 10 * 1000;
-const DEFAULT_CONFIG = {
+export interface Config {
+  route_prefix: string;
+  secret: string;
+  sc_update_url_key_name: string;
+  restart_function: () => void;
+  service_port: number;
+  http_proto: string;
+  auth_middleware: boolean | ((req: any, res: any, next: any) => void);
+  repo_dir: string;
+  console_log: (...args: any[]) => void;
+  error_log: (...args: any[]) => void;
+  update_launch_default: boolean;
+  remove_old_target: boolean;
+  remote_repo_prefix?: string;
+  metadata_opts?: any;
+  asg_name?: string;
+  region?: string;
+}
+
+const DEFAULT_CONFIG: Config = {
   route_prefix: '',
   secret: 'secret',
   sc_update_url_key_name: 'SC_UPDATE_URL',
@@ -31,17 +52,17 @@ const DEFAULT_CONFIG = {
   service_port: 80,
   http_proto: 'http',
   auth_middleware: false,
-  repo_dir: process.env.PWD,
+  repo_dir: process.env.PWD || '.',
   console_log: console.log,
   error_log: console.error,
   update_launch_default: true,
   remove_old_target: true,
 };
-const g_config = {};
-let g_gitCommitHash = false;
+const g_config: Config = {} as any;
+let g_gitCommitHash: string | boolean = false;
 let g_updateHash = '';
 
-function init(app, config) {
+export function init(app: any, config: Partial<Config>) {
   Object.assign(g_config, DEFAULT_CONFIG, config);
   if (typeof g_config.route_prefix !== 'string') {
     throw 'server-control route_prefix required';
@@ -53,11 +74,11 @@ function init(app, config) {
   g_config.remote_repo_prefix.replace(/\/$/, '');
 
   asyncSeries([
-    (done) => {
+    (done: (err?: any) => void) => {
       _getAwsRegion(done);
     },
-    (done) => {
-      getGitCommitHash();
+    (done: (err?: any) => void) => {
+      getGitCommitHash(() => {});
       const { route_prefix } = g_config;
       if (g_config.remove_old_target) {
         _removeOldTarget();
@@ -91,10 +112,10 @@ function init(app, config) {
     },
   ]);
 }
-function _parseQuery(req, res, next) {
+function _parseQuery(req: any, res: any, next: any) {
   if (typeof req.query === 'string') {
-    const query = {};
-    req.query.split('&').forEach((key_val) => {
+    const query: { [key: string]: string } = {};
+    req.query.split('&').forEach((key_val: string) => {
       const split = key_val.split('=');
       query[split[0]] = split[1] || '';
     });
@@ -102,7 +123,7 @@ function _parseQuery(req, res, next) {
   }
   next();
 }
-function _secretOrAuth(req, res, next) {
+function _secretOrAuth(req: any, res: any, next: any) {
   if (req.headers && req.headers['x-sc-secret'] === g_config.secret) {
     next();
   } else if (
@@ -117,17 +138,21 @@ function _secretOrAuth(req, res, next) {
     req.cookies.secret === g_config.secret
   ) {
     next();
-  } else if (g_config.auth_middleware) {
+  } else if (typeof g_config.auth_middleware === 'function') {
     g_config.auth_middleware(req, res, next);
   } else {
     res.sendStatus(403);
   }
 }
-function _serverData(req, res) {
+function _serverData(req: any, res: any) {
   res.header('Cache-Control', 'no-cache, no-store, must-revalidate');
 
   getGitCommitHash((err, git_commit_hash) => {
-    const body = {
+    const body: {
+      git_commit_hash: string | undefined;
+      uptime: number;
+      err?: any;
+    } = {
       git_commit_hash,
       uptime: process.uptime(),
     };
@@ -139,11 +164,17 @@ function _serverData(req, res) {
   });
 }
 
-function _groupData(req, res) {
+function _groupData(req: any, res: any) {
   res.header('Cache-Control', 'no-cache, no-store, must-revalidate');
 
   _getGroupData((err, result) => {
-    const body = {
+    const body: {
+      LATEST: any;
+      InstanceId: any;
+      instance_list: any;
+      auto_scale_group?: any;
+      launch_template?: any;
+    } = {
       LATEST: result.latest || 'unknown',
       InstanceId: result.InstanceId || 'unknown',
       instance_list: result.instance_list,
@@ -167,32 +198,32 @@ function _groupData(req, res) {
   });
 }
 
-function _getGroupData(done) {
+function _getGroupData(done: (err: any, result?: any) => void) {
   const autoscaling = _getAutoscaling();
   const ec2 = _getEC2();
-  let latest = false;
+  let latest: string | boolean = false;
   let InstanceId = false;
-  let asg = false;
-  let instance_list = false;
-  let launch_template = false;
+  let asg: any = false;
+  let instance_list: any[] = [];
+  let launch_template: any = false;
 
   asyncSeries(
     [
-      (done) => {
+      (done: (err?: any) => void) => {
         _getLatest((err, result) => {
           if (err) {
             _errorLog('_getGroupData: latest err:', err);
           }
-          latest = result;
+          latest = result || false;
           done();
         });
       },
-      (done) => {
+      (done: (err?: any) => void) => {
         const opts = {
           url: 'http://169.254.169.254/latest/meta-data/instance-id',
           ...(g_config.metadata_opts || {}),
         };
-        webRequest(opts, (err, results) => {
+        request.webRequest(opts, (err: any, results: any) => {
           if (err) {
             _errorLog('_getGroupData: Failed to get instance id:', err);
           }
@@ -200,14 +231,14 @@ function _getGroupData(done) {
           done();
         });
       },
-      (done) => {
+      (done: (err?: any) => void) => {
         const command = new DescribeAutoScalingGroupsCommand({});
         autoscaling.send(command).then(
-          (data) => {
-            asg = data.AutoScalingGroups.find((group) => {
+          (data: any) => {
+            asg = data.AutoScalingGroups.find((group: any) => {
               return (
                 group.AutoScalingGroupName === g_config.asg_name ||
-                group.Instances.find((i) => i.InstanceId === InstanceId)
+                group.Instances.find((i: any) => i.InstanceId === InstanceId)
               );
             });
             if (!asg) {
@@ -217,22 +248,22 @@ function _getGroupData(done) {
               done();
             }
           },
-          (err) => {
+          (err: any) => {
             _errorLog('_getGroupData: find asg err:', err);
             done(err);
           }
         );
       },
-      (done) => {
+      (done: (err?: any) => void) => {
         const opts = {
-          InstanceIds: asg.Instances.map((i) => i.InstanceId),
+          InstanceIds: asg.Instances.map((i: any) => i.InstanceId),
         };
         const command = new DescribeInstancesCommand(opts);
         ec2.send(command).then(
-          (results) => {
+          (results: any) => {
             instance_list = [];
-            results.Reservations.forEach((reservation) => {
-              reservation.Instances.forEach((i) => {
+            results.Reservations.forEach((reservation: any) => {
+              reservation.Instances.forEach((i: any) => {
                 instance_list.push({
                   InstanceId: i.InstanceId,
                   PrivateIpAddress: i.PrivateIpAddress,
@@ -246,17 +277,19 @@ function _getGroupData(done) {
             });
             done();
           },
-          (err) => {
+          (err: any) => {
             _errorLog('_getGroupData: describeInstances err:', err);
             done(err);
           }
         );
       },
-      (done) => {
-        const list = instance_list.filter((i) => i.State.Name === 'running');
+      (done: (err?: any) => void) => {
+        const list = instance_list.filter(
+          (i: any) => i.State.Name === 'running'
+        );
         asyncEach(
           list,
-          (instance, done) => {
+          (instance: any, done: (err?: any) => void) => {
             _getServerData(instance, (err, body) => {
               instance.git_commit_hash = body && body.git_commit_hash;
               instance.uptime = body && body.uptime;
@@ -266,7 +299,7 @@ function _getGroupData(done) {
           done
         );
       },
-      (done) => {
+      (done: (err?: any) => void) => {
         const lt =
           asg.LaunchTemplate ||
           asg.MixedInstancesPolicy?.LaunchTemplate?.LaunchTemplateSpecification;
@@ -276,7 +309,7 @@ function _getGroupData(done) {
         };
         const command = new DescribeLaunchTemplateVersionsCommand(opts);
         ec2.send(command).then(
-          (data) => {
+          (data: any) => {
             if (data?.LaunchTemplateVersions?.length > 0) {
               launch_template = data.LaunchTemplateVersions[0];
               const ud = launch_template.LaunchTemplateData.UserData;
@@ -289,14 +322,14 @@ function _getGroupData(done) {
               done('launch_template_not_found');
             }
           },
-          (err) => {
+          (err: any) => {
             _errorLog('_getGroupData: launch template fetch error:', err);
             done(err);
           }
         );
       },
     ],
-    (err) => {
+    (err: any) => {
       const ret = {
         latest,
         InstanceId,
@@ -309,7 +342,7 @@ function _getGroupData(done) {
   );
 }
 
-function _getServerData(instance, done) {
+function _getServerData(instance: any, done: (err: any, body?: any) => void) {
   const proto = g_config.http_proto;
   const ip = instance.PrivateIpAddress;
   const port = g_config.service_port;
@@ -326,14 +359,14 @@ function _getServerData(instance, done) {
       secret: g_config.secret,
     },
   };
-  webRequest(opts, (err, body) => {
+  request.webRequest(opts, (err: any, body: any) => {
     if (err) {
       _errorLog('_getServerData: request err:', err);
     }
     done(err, body);
   });
 }
-function _updateServer(req, res) {
+function _updateServer(req: any, res: any) {
   res.header('Cache-Control', 'no-cache, no-store, must-revalidate');
   const hash = req.body.hash || req.query.hash;
   if (hash) {
@@ -349,11 +382,11 @@ function _updateServer(req, res) {
     res.status(400).send('hash is required');
   }
 }
-function _updateSelf(hash, done) {
+function _updateSelf(hash: string, done: (err: any) => void) {
   const dir = g_config.repo_dir;
   const url = `${g_config.remote_repo_prefix}/${hash}.tar.gz`;
   const cmd = `cd ${dir} && ${__dirname}/../scripts/update_to_hash.sh ${url}`;
-  child_process.exec(cmd, (err, stdout, stderr) => {
+  child_process.exec(cmd, (err: any, stdout: any, stderr: any) => {
     if (err) {
       _errorLog(
         '_updateSelf: update_to_hash.sh failed with err:',
@@ -373,7 +406,7 @@ function _updateSelf(hash, done) {
 function _removeOldTarget() {
   const dir = g_config.repo_dir;
   const cmd = `${__dirname}/../scripts/remove_old_target.sh ${dir}`;
-  child_process.exec(cmd, (err, stdout, stderr) => {
+  child_process.exec(cmd, (err: any, stdout: any, stderr: any) => {
     if (err) {
       _errorLog(
         '_removeOldTarget: remove_old_target.sh failed with err:',
@@ -387,7 +420,7 @@ function _removeOldTarget() {
   });
 }
 
-function _updateGroup(req, res) {
+function _updateGroup(req: any, res: any) {
   res.header('Cache-Control', 'no-cache, no-store, must-revalidate');
 
   const hash = req.body.hash || req.query.hash;
@@ -397,18 +430,18 @@ function _updateGroup(req, res) {
     const ami_id = req.body.ami_id || req.query.ami_id || false;
 
     const ec2 = _getEC2();
-    let group_data = false;
+    let group_data: any = false;
     let old_data = '';
-    let new_version;
-    const server_result = {};
+    let new_version: any;
+    const server_result: { [key: string]: any } = {};
     asyncSeries(
       [
-        (done) => {
+        (done: (err?: any) => void) => {
           _getGroupData((err, result) => {
             if (!err) {
               group_data = result;
               const data = result.launch_template.LaunchTemplateData.UserData;
-              data.split('\n').forEach((line) => {
+              data.split('\n').forEach((line: string) => {
                 if (line.length && line.indexOf(key_name) === -1) {
                   old_data += line + '\n';
                 }
@@ -417,8 +450,8 @@ function _updateGroup(req, res) {
             done(err);
           });
         },
-        (done) => {
-          headUrl(url, { region: g_config.region }, (err) => {
+        (done: (err?: any) => void) => {
+          request.headUrl(url, { region: g_config.region }, (err: any) => {
             if (err) {
               _errorLog('_updateGroup: head url:', url, 'err:', err);
               err = 'url_not_found';
@@ -426,7 +459,7 @@ function _updateGroup(req, res) {
             done(err);
           });
         },
-        (done) => {
+        (done: (err?: any) => void) => {
           const new_data = `${old_data}${key_name}=${url}\n`;
           const opts = {
             LaunchTemplateId: group_data.launch_template.LaunchTemplateId,
@@ -436,21 +469,21 @@ function _updateGroup(req, res) {
             },
           };
           if (ami_id) {
-            opts.LaunchTemplateData.ImageId = ami_id;
+            (opts.LaunchTemplateData as any).ImageId = ami_id;
           }
           const command = new CreateLaunchTemplateVersionCommand(opts);
           ec2.send(command).then(
-            (data) => {
+            (data: any) => {
               new_version = data.LaunchTemplateVersion.VersionNumber;
               done();
             },
-            (err) => {
+            (err: any) => {
               _errorLog('_updateGroup: failed to create version, err:', err);
               done(err);
             }
           );
         },
-        (done) => {
+        (done: (err?: any) => void) => {
           if (g_config.update_launch_default) {
             const opts = {
               DefaultVersion: String(new_version),
@@ -461,7 +494,7 @@ function _updateGroup(req, res) {
               () => {
                 done();
               },
-              (err) => {
+              (err: any) => {
                 _errorLog('_updateGroup: failed to update default, err:', err);
                 done(err);
               }
@@ -470,11 +503,11 @@ function _updateGroup(req, res) {
             done();
           }
         },
-        (done) => {
-          let group_err;
+        (done: (err?: any) => void) => {
+          let group_err: any;
           asyncEach(
             group_data.instance_list,
-            (instance, done) => {
+            (instance: any, done: (err?: any) => void) => {
               if (instance.InstanceId === group_data.InstanceId) {
                 done();
               } else {
@@ -496,15 +529,20 @@ function _updateGroup(req, res) {
             () => done(group_err)
           );
         },
-        (done) => {
+        (done: (err?: any) => void) => {
           _updateSelf(hash, (err) => {
             server_result[group_data.InstanceId] = err;
             done(err);
           });
         },
       ],
-      (err) => {
-        const body = {
+      (err: any) => {
+        const body: {
+          err: any;
+          server_result: { [key: string]: any };
+          launch_template_version: any;
+          _msg?: string;
+        } = {
           err,
           server_result,
           launch_template_version: new_version,
@@ -523,10 +561,14 @@ function _updateGroup(req, res) {
     res.status(400).send('hash is required');
   }
 }
-function _updateInstance(hash, instance, done) {
+function _updateInstance(
+  hash: string,
+  instance: any,
+  done: (err: any) => void
+) {
   asyncSeries(
     [
-      (done) => {
+      (done: (err?: any) => void) => {
         const proto = g_config.http_proto;
         const ip = instance.PrivateIpAddress;
         const port = g_config.service_port;
@@ -544,19 +586,19 @@ function _updateInstance(hash, instance, done) {
             secret: g_config.secret,
           },
         };
-        webRequest(opts, done);
+        request.webRequest(opts, done);
       },
-      (done) => _waitForServer({ instance, hash }, done),
+      (done: (err?: any) => void) => _waitForServer({ instance, hash }, done),
     ],
     done
   );
 }
-function _waitForServer(params, done) {
+function _waitForServer(params: any, done: (err: any) => void) {
   const { instance, hash } = params;
   let count = 0;
 
   asyncForever(
-    (done) => {
+    (done: (err?: any) => void) => {
       count++;
       _getServerData(instance, (err, body) => {
         if (!err && body && body.git_commit_hash === hash) {
@@ -568,7 +610,7 @@ function _waitForServer(params, done) {
         }
       });
     },
-    (err) => {
+    (err: any) => {
       if (err === 'stop') {
         err = null;
       }
@@ -577,18 +619,22 @@ function _waitForServer(params, done) {
   );
 }
 
-function _getLatest(done) {
+function _getLatest(done: (err: any, body?: string) => void) {
   const url = g_config.remote_repo_prefix + '/LATEST';
-  fetchFileContents(url, { region: g_config.region }, (err, body) => {
-    done(err, body && body.trim());
-  });
+  request.fetchFileContents(
+    url,
+    { region: g_config.region },
+    (err: any, body?: string) => {
+      done(err, body && body.trim());
+    }
+  );
 }
-function getGitCommitHash(done) {
-  if (g_gitCommitHash) {
+export function getGitCommitHash(done: (err: any, result?: string) => void) {
+  if (typeof g_gitCommitHash === 'string') {
     done && done(null, g_gitCommitHash);
   } else {
     const file = pathJoin(g_config.repo_dir, '.git_commit_hash');
-    fs.readFile(file, 'utf8', (err, result) => {
+    fs.readFile(file, 'utf8', (err: any, result: string) => {
       if (!err && !result) {
         err = 'no_result';
       }
@@ -597,11 +643,11 @@ function getGitCommitHash(done) {
       } else {
         g_gitCommitHash = result.trim();
       }
-      done && done(err, g_gitCommitHash);
+      done && done(err, g_gitCommitHash as string);
     });
   }
 }
-function _getAwsRegion(done) {
+function _getAwsRegion(done: (err?: any) => void) {
   if (g_config.region) {
     return done();
   }
@@ -609,7 +655,7 @@ function _getAwsRegion(done) {
     url: 'http://169.254.169.254/latest/dynamic/instance-identity/document',
     ...(g_config.metadata_opts || {}),
   };
-  webRequest(opts, (err, results) => {
+  request.webRequest(opts, (err: any, results: any) => {
     if (err) {
       _errorLog('_getAwsRegion: metadata err:', err);
     } else {
@@ -632,7 +678,7 @@ function _getAutoscaling() {
 function _getEC2() {
   return new EC2Client({ region: g_config.region });
 }
-function _errorLog(...args) {
+function _errorLog(...args: any[]) {
   g_config.error_log(...args);
 }
 function _defaultRestartFunction() {

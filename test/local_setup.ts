@@ -24,7 +24,7 @@ async function beforeAll(this: Mocha.Context) {
   this.timeout(30000);
   console.log('befoerAll: Starting test server...');
   const { url, server } = await createLocal();
-  global.TEST_URL = url;
+  (global as any).TEST_URL = url;
   setUrl(url);
 }
 async function afterAll() {

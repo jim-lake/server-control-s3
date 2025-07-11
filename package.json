@@ -22,9 +22,9 @@
   ],
   "main": "dist/server_control.js",
   "scripts": {
-    "build": "rollup -c",
-    "lint": "eslint src --ext js && eslint test --ext ts && eslint example --ext js",
-    "pretty": "prettier --write \"src/*.js\" \"example/*.js\" \"test/*.ts\"",
+    "build": "rm -rf dist && rollup -c",
+    "lint": "eslint src --ext ts && eslint test --ext ts && eslint example --ext js",
+    "pretty": "prettier --write \"src/*.ts\" \"example/*.js\" \"test/*.ts\"",
     "test": "npm run build && npm run test-only",
     "test-only": "NODE_OPTIONS='--import=tsx' mocha --require test/local_setup.ts \"test/*.test.ts\""
   },
@@ -37,6 +37,8 @@
   "devDependencies": {
     "@rollup/plugin-commonjs": "^28.0.6",
     "@rollup/plugin-node-resolve": "^16.0.1",
+    "@rollup/plugin-typescript": "^12.1.4",
+    "@types/async": "^3.2.24",
     "@types/chai": "^5.2.2",
     "@types/mocha": "^10.0.10",
     "@types/supertest": "^6.0.3",
@@ -47,6 +49,7 @@
     "eslint-plugin-import": "^2.32.0",
     "mocha": "^11.7.1",
     "rollup": "^4.44.2",
+    "rollup-plugin-dts": "^6.2.1",
     "supertest": "^7.1.2",
     "tsx": "^4.20.3",
     "typescript": "^5.8.3"

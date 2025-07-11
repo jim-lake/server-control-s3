@@ -13,7 +13,7 @@ const HASH_LIST = [
 
 describe('Live Check', function () {
   it('should return 200', async function () {
-    console.log('checking:', global.TEST_URL);
+    console.log('checking:', (global as any).TEST_URL);
     const res = await request.get('/');
     expect(res.status).to.equal(200);
   });

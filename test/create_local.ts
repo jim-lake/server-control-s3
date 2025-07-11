@@ -48,7 +48,7 @@ export async function createLocal() {
     }, 25000);
 
     try {
-      await waitForServer(g_url);
+      await waitForServer();
       clearTimeout(timeout);
       resolve(true);
     } catch (error) {
@@ -73,11 +73,11 @@ export async function closeLocal() {
 
     await new Promise((resolve) => {
       const timeout = setTimeout(() => {
-        g_server.kill('SIGKILL');
+        g_server?.kill('SIGKILL');
         resolve(true);
       }, 5000);
 
-      g_server.on('exit', () => {
+      g_server?.on('exit', () => {
         clearTimeout(timeout);
         resolve(true);
       });
@@ -103,7 +103,7 @@ function _start() {
   server.on('close', _onClose);
   return server;
 }
-function _onClose(code, signal) {
+function _onClose(code: number, signal: string) {
   console.log('_onClose:', code, signal);
   if (g_isRunning) {
     console.log('_onClose: restarting');

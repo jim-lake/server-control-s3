@@ -1,19 +1,15 @@
-const {
+import {
   S3Client,
   GetObjectCommand,
   HeadObjectCommand,
-} = require('@aws-sdk/client-s3');
-const http = require('http');
-const https = require('https');
-const url_lib = require('url');
+} from '@aws-sdk/client-s3';
+import http from 'http';
+import https from 'https';
+import url_lib from 'url';
 
 const TIMEOUT = 15 * 1000;
 
-exports.webRequest = webRequest;
-exports.headUrl = headUrl;
-exports.fetchFileContents = fetchFileContents;
-
-function webRequest(opts, done) {
+export function webRequest(opts: any, done: (err: any, body?: any) => void) {
   if (!opts.timeout) {
     opts.timeout = TIMEOUT;
   }
@@ -41,40 +37,44 @@ function webRequest(opts, done) {
     }
   }
 
-  const client_req = transport.request(url, request_options, (incoming_res) => {
-    let response_body = '';
-    incoming_res.on('data', (chunk) => {
-      response_body += chunk;
-    });
+  const client_req = transport.request(
+    url,
+    request_options,
+    (incoming_res: any) => {
+      let response_body = '';
+      incoming_res.on('data', (chunk: any) => {
+        response_body += chunk;
+      });
 
-    incoming_res.on('end', () => {
-      const status_code = incoming_res.statusCode;
-      let err = null;
-      if (status_code < 200 || status_code > 299) {
-        err = status_code;
-      }
-
-      const content_type = incoming_res.headers['content-type'] || '';
-      if (content_type.includes('application/json')) {
-        try {
-          response_body = JSON.parse(response_body);
-        } catch (e) {
-          // ignore
+      incoming_res.on('end', () => {
+        const status_code = incoming_res.statusCode;
+        let err = null;
+        if (status_code < 200 || status_code > 299) {
+          err = status_code;
         }
-      }
 
-      done(err, response_body);
-    });
-  });
+        const content_type = incoming_res.headers['content-type'] || '';
+        if (content_type.includes('application/json')) {
+          try {
+            response_body = JSON.parse(response_body);
+          } catch (e) {
+            // ignore
+          }
+        }
 
-  client_req.on('error', (err) => {
+        done(err, response_body);
+      });
+    }
+  );
+
+  client_req.on('error', (err: any) => {
     done(err);
   });
 
   client_req.on('timeout', () => {
     client_req.destroy();
     const err = new Error('Request timed out');
-    err.code = 'ETIMEDOUT';
+    (err as any).code = 'ETIMEDOUT';
     done(err);
   });
 
@@ -85,7 +85,11 @@ function webRequest(opts, done) {
   client_req.end();
 }
 
-function headUrl(url, opts, done) {
+export function headUrl(
+  url: string,
+  opts: any,
+  done: (err: any, data?: any) => void
+) {
   if (typeof opts === 'function') {
     done = opts;
     opts = {};
@@ -97,14 +101,21 @@ function headUrl(url, opts, done) {
     const Bucket = parts && parts[1];
     const Key = parts && parts[2];
     const s3 = new S3Client({ region: opts.region });
-    const command = new HeadObjectCommand({ Bucket, Key });
+    const command = new HeadObjectCommand({
+      Bucket: Bucket || '',
+      Key: Key || '',
+    });
     s3.send(command).then(
-      (data) => done(null, data),
-      (err) => done(err)
+      (data: any) => done(null, data),
+      (err: any) => done(err)
     );
   }
 }
-function fetchFileContents(url, opts, done) {
+export function fetchFileContents(
+  url: string,
+  opts: any,
+  done: (err: any, body?: string) => void
+) {
   if (typeof opts === 'function') {
     done = opts;
     opts = {};
@@ -116,22 +127,25 @@ function fetchFileContents(url, opts, done) {
     const Bucket = parts && parts[1];
     const Key = parts && parts[2];
     const s3 = new S3Client({ region: opts.region });
-    const command = new GetObjectCommand({ Bucket, Key });
+    const command = new GetObjectCommand({
+      Bucket: Bucket || '',
+      Key: Key || '',
+    });
     s3.send(command).then(
-      (data) => {
+      (data: any) => {
         const stream = data.Body;
         let body = '';
-        stream.on('data', (chunk) => {
+        stream.on('data', (chunk: any) => {
           body += chunk.toString();
         });
         stream.on('end', () => {
           done(null, body);
         });
-        stream.on('error', (err) => {
+        stream.on('error', (err: any) => {
           done(err);
         });
       },
-      (err) => done(err)
+      (err: any) => done(err)
     );
   }
 }
