@@ -1,0 +1,15 @@
+{
+ "name": "server-control-test-deploy",
+ "private": true,
+ "scripts": {
+  "up": "PULUMI_CONFIG_PASSPHRASE='' pulumi up --stack test",
+  "down": "PULUMI_CONFIG_PASSPHRASE='' pulumi down --stack test"
+ },
+ "dependencies": {
+  "@pulumi/aws": "^6.83.0",
+  "@pulumi/aws-native": "^1.30.0",
+  "@pulumi/awsx": "^2.22.0",
+  "@pulumi/pulumi": "^3.181.0",
+  "@pulumi/std": "^2.2.0"
+ }
+}

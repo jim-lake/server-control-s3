@@ -1,2 +1,4 @@
 node_modules
 /test_repo
+.DS_Store
+config.json
