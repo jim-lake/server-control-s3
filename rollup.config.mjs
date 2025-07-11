@@ -6,7 +6,6 @@ export default {
   output: {
     file: 'dist/server_control.js',
     format: 'cjs',
-    exports: 'named',
   },
   plugins: [
     resolve(),

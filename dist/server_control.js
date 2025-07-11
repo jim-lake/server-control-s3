@@ -1,7 +1,5 @@
 'use strict';
 
-Object.defineProperty(exports, '__esModule', { value: true });
-
 var require$$0$1 = require('async/each');
 var require$$1$1 = require('async/forever');
 var require$$2$1 = require('async/series');
@@ -826,4 +824,4 @@ function requireSrc () {
 var srcExports = requireSrc();
 var index = /*@__PURE__*/getDefaultExportFromCjs(srcExports);
 
-exports.default = index;
+module.exports = index;
