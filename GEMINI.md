@@ -17,11 +17,11 @@ This project, `server-control-s3`, is a tool for updating Amazon AWS instances f
 
 ### Package Manager
 
--   Use `npm`
+-   Use `npm` for all package management.
 
 ### Formatting
 
--   Run `npm pretty` to format the code before committing. This command executes `prettier --write "src/*.js" "example/*.js" "test/*.ts"`.
+-   Run `npm run pretty` to format the code before committing. This command executes `prettier --write "src/*.js" "example/*.js" "test/*.ts"`.
 
 ### Linting
 
@@ -42,8 +42,10 @@ This project, `server-control-s3`, is a tool for updating Amazon AWS instances f
 -   **Filenames:** `snake_case` (e.g., `my_module.js`).
 -   **Local Functions:** `_camelCase` (e.g., `_calculateTotal()`).
 -   **Exported Functions:** `camelCase` (e.g., `calculateTotal()`).
--   **Local Variables:** `snake_case` (e.g., `let my_variable = 1;`).
+-   **Local Variables:** `snake_case` (e.g., `let my_variable = 1;`). Use short, concise names (e.g., `opts`, `res`, `req`, `i`, `total`).
+-   **Global Variables:** `g_myGlobalText`.
 -   **Global Constants:** `ALL_CAPS` (e.g., `const MAX_ITEMS = 10;`).
+-   **Function Parameters:** Functions should take a `params` object for incoming data and pass an `opts` object to other functions.
 
 ### Asynchronous Code
 

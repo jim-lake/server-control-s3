@@ -23,6 +23,14 @@ Before committing any changes, run `npm run pretty` to format the code.
     -   Example: `_calculateTotal()`
 -   **Exported Functions:** Exported functions should be named using camelCase.
     -   Example: `calculateTotal()`
+-   **Parameter & Options:** Functions take params and pass opts to other
+functions.  That allows you to allows differentiate incoming and outgoing variables.
+    -   Example: ```
+function consumer(params: any) {
+    const opts = { foo: 1, bar: params.bar };
+    anotherFunction(opts);
+}
+```
 
 ### Variables
 
@@ -30,6 +38,9 @@ Before committing any changes, run `npm run pretty` to format the code.
     -   Example: `let my_counter = 0;`
 -   **Global Constants:** Global constants should be named using ALL_CAPS with underscores separating words.
     -   Example: `const MAX_RETRIES = 3;`
+-   **Short names:** Use short consise names for local function variables.
+    -   Example: `opts`, `res`, `req`, `i`, `total`
+-   **Global Variables:** Use `g_myGlobalText` for global non-constant variables.
 
 ### Files
 
