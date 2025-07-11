@@ -1,4 +1,7 @@
-const async = require('async');
+const asyncEach = require('async/each');
+const asyncForever = require('async/forever');
+const asyncSeries = require('async/series');
+
 const {
   AutoScalingClient,
   DescribeAutoScalingGroupsCommand,
@@ -10,9 +13,9 @@ const {
   CreateLaunchTemplateVersionCommand,
   ModifyLaunchTemplateCommand,
 } = require('@aws-sdk/client-ec2');
-const child_process = require('child_process');
-const fs = require('fs');
-const { join: pathJoin } = require('path');
+const child_process = require('node:child_process');
+const fs = require('node:fs');
+const { join: pathJoin } = require('node:path');
 const { webRequest, headUrl, fetchFileContents } = require('./request');
 
 exports.init = init;
@@ -49,7 +52,7 @@ function init(app, config) {
   g_config.route_prefix.replace(/\/$/, '');
   g_config.remote_repo_prefix.replace(/\/$/, '');
 
-  async.series([
+  asyncSeries([
     (done) => {
       _getAwsRegion(done);
     },
@@ -173,7 +176,7 @@ function _getGroupData(done) {
   let instance_list = false;
   let launch_template = false;
 
-  async.series(
+  asyncSeries(
     [
       (done) => {
         _getLatest((err, result) => {
@@ -251,7 +254,7 @@ function _getGroupData(done) {
       },
       (done) => {
         const list = instance_list.filter((i) => i.State.Name === 'running');
-        async.each(
+        asyncEach(
           list,
           (instance, done) => {
             _getServerData(instance, (err, body) => {
@@ -398,7 +401,7 @@ function _updateGroup(req, res) {
     let old_data = '';
     let new_version;
     const server_result = {};
-    async.series(
+    asyncSeries(
       [
         (done) => {
           _getGroupData((err, result) => {
@@ -469,7 +472,7 @@ function _updateGroup(req, res) {
         },
         (done) => {
           let group_err;
-          async.each(
+          asyncEach(
             group_data.instance_list,
             (instance, done) => {
               if (instance.InstanceId === group_data.InstanceId) {
@@ -521,7 +524,7 @@ function _updateGroup(req, res) {
   }
 }
 function _updateInstance(hash, instance, done) {
-  async.series(
+  asyncSeries(
     [
       (done) => {
         const proto = g_config.http_proto;
@@ -552,7 +555,7 @@ function _waitForServer(params, done) {
   const { instance, hash } = params;
   let count = 0;
 
-  async.forever(
+  asyncForever(
     (done) => {
       count++;
       _getServerData(instance, (err, body) => {

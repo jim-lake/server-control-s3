@@ -6,12 +6,14 @@ export default {
   output: {
     file: 'dist/server_control.js',
     format: 'cjs',
+    exports: 'named',
   },
   plugins: [
     resolve(),
     commonjs(),
   ],
   external: [
-    /node_modules/
+    /node_modules/,
   ],
+  treeshake: 'smallest',
 };

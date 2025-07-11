@@ -1,11 +1,15 @@
 'use strict';
 
-var require$$0$1 = require('async');
-var require$$1$1 = require('@aws-sdk/client-auto-scaling');
-var require$$2$1 = require('@aws-sdk/client-ec2');
-var require$$3$1 = require('child_process');
-var require$$4 = require('fs');
-var require$$5 = require('path');
+Object.defineProperty(exports, '__esModule', { value: true });
+
+var require$$0$1 = require('async/each');
+var require$$1$1 = require('async/forever');
+var require$$2$1 = require('async/series');
+var require$$3$1 = require('@aws-sdk/client-auto-scaling');
+var require$$4 = require('@aws-sdk/client-ec2');
+var require$$5 = require('node:child_process');
+var require$$6 = require('node:fs');
+var require$$7 = require('node:path');
 var require$$0 = require('@aws-sdk/client-s3');
 var require$$1 = require('http');
 var require$$2 = require('https');
@@ -169,22 +173,25 @@ var hasRequiredSrc;
 function requireSrc () {
 	if (hasRequiredSrc) return src;
 	hasRequiredSrc = 1;
-	const async = require$$0$1;
+	const asyncEach = require$$0$1;
+	const asyncForever = require$$1$1;
+	const asyncSeries = require$$2$1;
+
 	const {
 	  AutoScalingClient,
 	  DescribeAutoScalingGroupsCommand,
-	} = require$$1$1;
+	} = require$$3$1;
 	const {
 	  EC2Client,
 	  DescribeInstancesCommand,
 	  DescribeLaunchTemplateVersionsCommand,
 	  CreateLaunchTemplateVersionCommand,
 	  ModifyLaunchTemplateCommand,
-	} = require$$2$1;
-	const child_process = require$$3$1;
-	const fs = require$$4;
-	const { join: pathJoin } = require$$5;
-	const { webRequest, headUrl, fetchFileContents } = requireRequest();
+	} = require$$4;
+	const child_process = require$$5;
+	const fs = require$$6;
+	const { join: pathJoin } = require$$7;
+	const { webRequest, headUrl, fetchFileContents } = /*@__PURE__*/ requireRequest();
 
 	src.init = init;
 	src.getGitCommitHash = getGitCommitHash;
@@ -220,7 +227,7 @@ function requireSrc () {
 	  g_config.route_prefix.replace(/\/$/, '');
 	  g_config.remote_repo_prefix.replace(/\/$/, '');
 
-	  async.series([
+	  asyncSeries([
 	    (done) => {
 	      _getAwsRegion(done);
 	    },
@@ -344,7 +351,7 @@ function requireSrc () {
 	  let instance_list = false;
 	  let launch_template = false;
 
-	  async.series(
+	  asyncSeries(
 	    [
 	      (done) => {
 	        _getLatest((err, result) => {
@@ -422,7 +429,7 @@ function requireSrc () {
 	      },
 	      (done) => {
 	        const list = instance_list.filter((i) => i.State.Name === 'running');
-	        async.each(
+	        asyncEach(
 	          list,
 	          (instance, done) => {
 	            _getServerData(instance, (err, body) => {
@@ -569,7 +576,7 @@ function requireSrc () {
 	    let old_data = '';
 	    let new_version;
 	    const server_result = {};
-	    async.series(
+	    asyncSeries(
 	      [
 	        (done) => {
 	          _getGroupData((err, result) => {
@@ -640,7 +647,7 @@ function requireSrc () {
 	        },
 	        (done) => {
 	          let group_err;
-	          async.each(
+	          asyncEach(
 	            group_data.instance_list,
 	            (instance, done) => {
 	              if (instance.InstanceId === group_data.InstanceId) {
@@ -692,7 +699,7 @@ function requireSrc () {
 	  }
 	}
 	function _updateInstance(hash, instance, done) {
-	  async.series(
+	  asyncSeries(
 	    [
 	      (done) => {
 	        const proto = g_config.http_proto;
@@ -723,7 +730,7 @@ function requireSrc () {
 	  const { instance, hash } = params;
 	  let count = 0;
 
-	  async.forever(
+	  asyncForever(
 	    (done) => {
 	      count++;
 	      _getServerData(instance, (err, body) => {
@@ -819,4 +826,4 @@ function requireSrc () {
 var srcExports = requireSrc();
 var index = /*@__PURE__*/getDefaultExportFromCjs(srcExports);
 
-module.exports = index;
+exports.default = index;
