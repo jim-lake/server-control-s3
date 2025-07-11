@@ -4,14 +4,26 @@
   "private": true,
   "main": "server.js",
   "scripts": {
-    "pretty": "prettier --write *.js"
+    "pretty": "prettier --write *.js",
+    "verify": "tsc --noEmit",
+    "run-ts": "tsx example2.ts"
   },
   "nodemonConfig": {
-    "watch": ["../src", "./"]
+    "watch": [
+      "../src",
+      "./"
+    ]
   },
   "dependencies": {
     "body-parser": "^1.20.2",
     "cookie-parser": "^1.4.6",
-    "express": "4.18.2"
+    "express": "4.18.2",
+    "tsx": "^4.20.3",
+    "typescript": "^5.8.3"
+  },
+  "devDependencies": {
+    "@types/body-parser": "^1.19.6",
+    "@types/cookie-parser": "^1.4.9",
+    "@types/express": "^5.0.3"
   }
 }

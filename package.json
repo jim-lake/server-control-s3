@@ -21,6 +21,7 @@
     "scripts/*"
   ],
   "main": "dist/server_control.js",
+  "types": "dist/server_control.d.ts",
   "scripts": {
     "build": "rm -rf dist && rollup -c",
     "lint": "eslint src --ext ts && eslint test --ext ts && eslint example --ext js",
