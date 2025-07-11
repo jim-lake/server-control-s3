@@ -1,10 +1,16 @@
 const express = require('express');
+const bodyParser = require('body-parser');
+const cookieParser = require('cookie-parser');
 const serverControl = require('../dist/server_control.js');
 
 const config = require('./config.json');
 
 const port = 3000;
 const app = express();
+
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(cookieParser());
 
 app.get('/', (req, res) => {
   res.send('Hello World!');

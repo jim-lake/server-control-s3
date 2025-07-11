@@ -1,9 +1,16 @@
 const async = require('async');
-require('aws-sdk/lib/maintenance_mode_message').suppress = true;
-const AWS = require('aws-sdk');
-const body_parser = require('body-parser');
+const {
+  AutoScalingClient,
+  DescribeAutoScalingGroupsCommand,
+} = require('@aws-sdk/client-auto-scaling');
+const {
+  EC2Client,
+  DescribeInstancesCommand,
+  DescribeLaunchTemplateVersionsCommand,
+  CreateLaunchTemplateVersionCommand,
+  ModifyLaunchTemplateCommand,
+} = require('@aws-sdk/client-ec2');
 const child_process = require('child_process');
-const cookie_parser = require('cookie-parser');
 const fs = require('fs');
 const { join: pathJoin } = require('path');
 const { webRequest, headUrl, fetchFileContents } = require('./request');
@@ -42,49 +49,44 @@ function init(app, config) {
   g_config.route_prefix.replace(/\/$/, '');
   g_config.remote_repo_prefix.replace(/\/$/, '');
 
-  _getAwsRegion();
-  getGitCommitHash();
-  const { route_prefix } = g_config;
-  if (g_config.remove_old_target) {
-    _removeOldTarget();
-  }
+  async.series([
+    (done) => {
+      _getAwsRegion(done);
+    },
+    (done) => {
+      getGitCommitHash();
+      const { route_prefix } = g_config;
+      if (g_config.remove_old_target) {
+        _removeOldTarget();
+      }
 
-  app.get(
-    route_prefix + '/server_data',
-    _parseQuery,
-    body_parser.json(),
-    body_parser.urlencoded({ extended: false }),
-    cookie_parser(),
-    _secretOrAuth,
-    _serverData
-  );
-  app.get(
-    route_prefix + '/group_data',
-    _parseQuery,
-    body_parser.json(),
-    body_parser.urlencoded({ extended: false }),
-    cookie_parser(),
-    _secretOrAuth,
-    _groupData
-  );
-  app.get(
-    route_prefix + '/update_group',
-    _parseQuery,
-    body_parser.json(),
-    body_parser.urlencoded({ extended: false }),
-    cookie_parser(),
-    _secretOrAuth,
-    _updateGroup
-  );
-  app.get(
-    route_prefix + '/update_server',
-    _parseQuery,
-    body_parser.json(),
-    body_parser.urlencoded({ extended: false }),
-    cookie_parser(),
-    _secretOrAuth,
-    _updateServer
-  );
+      app.all(
+        route_prefix + '/server_data',
+        _parseQuery,
+        _secretOrAuth,
+        _serverData
+      );
+      app.all(
+        route_prefix + '/group_data',
+        _parseQuery,
+        _secretOrAuth,
+        _groupData
+      );
+      app.all(
+        route_prefix + '/update_group',
+        _parseQuery,
+        _secretOrAuth,
+        _updateGroup
+      );
+      app.all(
+        route_prefix + '/update_server',
+        _parseQuery,
+        _secretOrAuth,
+        _updateServer
+      );
+      done();
+    },
+  ]);
 }
 function _parseQuery(req, res, next) {
   if (typeof req.query === 'string') {
@@ -183,8 +185,11 @@ function _getGroupData(done) {
         });
       },
       (done) => {
-        const meta = _getMetadataService();
-        meta.request('/latest/meta-data/instance-id', (err, results) => {
+        const opts = {
+          url: 'http://169.254.169.254/latest/meta-data/instance-id',
+          ...(g_config.metadata_opts || {}),
+        };
+        webRequest(opts, (err, results) => {
           if (err) {
             _errorLog('_getGroupData: Failed to get instance id:', err);
           }
@@ -193,10 +198,9 @@ function _getGroupData(done) {
         });
       },
       (done) => {
-        autoscaling.describeAutoScalingGroups({}, (err, data) => {
-          if (err) {
-            _errorLog('_getGroupData: find asg err:', err);
-          } else {
+        const command = new DescribeAutoScalingGroupsCommand({});
+        autoscaling.send(command).then(
+          (data) => {
             asg = data.AutoScalingGroups.find((group) => {
               return (
                 group.AutoScalingGroupName === g_config.asg_name ||
@@ -205,20 +209,24 @@ function _getGroupData(done) {
             });
             if (!asg) {
               _errorLog('_getGroupData: asg not found:', g_config.asg_name);
-              err = 'asg_not_found';
+              done('asg_not_found');
+            } else {
+              done();
             }
+          },
+          (err) => {
+            _errorLog('_getGroupData: find asg err:', err);
+            done(err);
           }
-          done(err);
-        });
+        );
       },
       (done) => {
         const opts = {
           InstanceIds: asg.Instances.map((i) => i.InstanceId),
         };
-        ec2.describeInstances(opts, (err, results) => {
-          if (err) {
-            _errorLog('_getGroupData: describeInstances err:', err);
-          } else {
+        const command = new DescribeInstancesCommand(opts);
+        ec2.send(command).then(
+          (results) => {
             instance_list = [];
             results.Reservations.forEach((reservation) => {
               reservation.Instances.forEach((i) => {
@@ -233,9 +241,13 @@ function _getGroupData(done) {
                 });
               });
             });
+            done();
+          },
+          (err) => {
+            _errorLog('_getGroupData: describeInstances err:', err);
+            done(err);
           }
-          done(err);
-        });
+        );
       },
       (done) => {
         const list = instance_list.filter((i) => i.State.Name === 'running');
@@ -259,21 +271,26 @@ function _getGroupData(done) {
           LaunchTemplateId: lt?.LaunchTemplateId,
           Versions: [lt?.Version],
         };
-        ec2.describeLaunchTemplateVersions(opts, (err, data) => {
-          if (err) {
-            _errorLog('_getGroupData: launch template fetch error:', err);
-          } else if (data?.LaunchTemplateVersions?.length > 0) {
-            launch_template = data.LaunchTemplateVersions[0];
-            const ud = launch_template.LaunchTemplateData.UserData;
-            if (ud) {
-              const s = Buffer.from(ud, 'base64').toString('utf8');
-              launch_template.LaunchTemplateData.UserData = s;
+        const command = new DescribeLaunchTemplateVersionsCommand(opts);
+        ec2.send(command).then(
+          (data) => {
+            if (data?.LaunchTemplateVersions?.length > 0) {
+              launch_template = data.LaunchTemplateVersions[0];
+              const ud = launch_template.LaunchTemplateData.UserData;
+              if (ud) {
+                const s = Buffer.from(ud, 'base64').toString('utf8');
+                launch_template.LaunchTemplateData.UserData = s;
+              }
+              done();
+            } else {
+              done('launch_template_not_found');
             }
-          } else {
-            err = 'launch_template_not_found';
+          },
+          (err) => {
+            _errorLog('_getGroupData: launch template fetch error:', err);
+            done(err);
           }
-          done(err);
-        });
+        );
       },
     ],
     (err) => {
@@ -398,7 +415,7 @@ function _updateGroup(req, res) {
           });
         },
         (done) => {
-          headUrl(url, (err) => {
+          headUrl(url, { region: g_config.region }, (err) => {
             if (err) {
               _errorLog('_updateGroup: head url:', url, 'err:', err);
               err = 'url_not_found';
@@ -418,14 +435,17 @@ function _updateGroup(req, res) {
           if (ami_id) {
             opts.LaunchTemplateData.ImageId = ami_id;
           }
-          ec2.createLaunchTemplateVersion(opts, (err, data) => {
-            if (err) {
-              _errorLog('_updateGroup: failed to create version, err:', err);
-            } else {
+          const command = new CreateLaunchTemplateVersionCommand(opts);
+          ec2.send(command).then(
+            (data) => {
               new_version = data.LaunchTemplateVersion.VersionNumber;
+              done();
+            },
+            (err) => {
+              _errorLog('_updateGroup: failed to create version, err:', err);
+              done(err);
             }
-            done(err);
-          });
+          );
         },
         (done) => {
           if (g_config.update_launch_default) {
@@ -433,12 +453,16 @@ function _updateGroup(req, res) {
               DefaultVersion: String(new_version),
               LaunchTemplateId: group_data.launch_template.LaunchTemplateId,
             };
-            ec2.modifyLaunchTemplate(opts, function (err) {
-              if (err) {
+            const command = new ModifyLaunchTemplateCommand(opts);
+            ec2.send(command).then(
+              () => {
+                done();
+              },
+              (err) => {
                 _errorLog('_updateGroup: failed to update default, err:', err);
+                done(err);
               }
-              done(err);
-            });
+            );
           } else {
             done();
           }
@@ -552,7 +576,7 @@ function _waitForServer(params, done) {
 
 function _getLatest(done) {
   const url = g_config.remote_repo_prefix + '/LATEST';
-  fetchFileContents(url, (err, body) => {
+  fetchFileContents(url, { region: g_config.region }, (err, body) => {
     done(err, body && body.trim());
   });
 }
@@ -574,37 +598,36 @@ function getGitCommitHash(done) {
     });
   }
 }
-function _getAwsRegion() {
-  if (!g_config.region) {
-    const meta = _getMetadataService();
-    meta.request(
-      '/latest/dynamic/instance-identity/document',
-      (err, results) => {
-        if (err) {
-          _errorLog('_getAwsRegion: metadata err:', err);
-        } else {
-          try {
-            const json = JSON.parse(results);
-            if (json && json.region) {
-              g_config.region = json.region;
-            }
-          } catch (e) {
-            _errorLog('_getAwsRegion: threw:', e);
-          }
-        }
-      }
-    );
+function _getAwsRegion(done) {
+  if (g_config.region) {
+    return done();
   }
+  const opts = {
+    url: 'http://169.254.169.254/latest/dynamic/instance-identity/document',
+    ...(g_config.metadata_opts || {}),
+  };
+  webRequest(opts, (err, results) => {
+    if (err) {
+      _errorLog('_getAwsRegion: metadata err:', err);
+    } else {
+      try {
+        const json = JSON.parse(results);
+        if (json && json.region) {
+          g_config.region = json.region;
+        }
+      } catch (e) {
+        _errorLog('_getAwsRegion: threw:', e);
+      }
+    }
+    done();
+  });
 }
-function _getMetadataService() {
-  const opts = g_config.metadata_opts || {};
-  return new AWS.MetadataService(opts);
-}
+
 function _getAutoscaling() {
-  return new AWS.AutoScaling({ region: g_config.region });
+  return new AutoScalingClient({ region: g_config.region });
 }
 function _getEC2() {
-  return new AWS.EC2({ region: g_config.region });
+  return new EC2Client({ region: g_config.region });
 }
 function _errorLog(...args) {
   g_config.error_log(...args);
