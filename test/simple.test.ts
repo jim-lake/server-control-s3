@@ -8,7 +8,7 @@ const INSTANCE_ID_LEN = 'i-0af730e40ca681ca2'.length;
 
 const HASH_LIST = [
   'ce7881f0bb5f535f55fc9cbf8111d13281832831',
-  '27d81f76c5fd1e085450b621afc1bceb315921e7',
+  '0f5670b45382ecf9535b61c3d68c82178e4033cf',
 ];
 
 describe('Live Check', function () {
