@@ -6,7 +6,7 @@ import util from 'node:util';
 import { fileURLToPath } from 'node:url';
 import { setUrl } from './api_helper';
 
-import { createLocal } from './create_local';
+import { createLocal, closeLocal } from './create_local';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -22,29 +22,12 @@ export const mochaHooks = {
 
 async function beforeAll(this: Mocha.Context) {
   this.timeout(30000);
+  console.log('befoerAll: Starting test server...');
   const { url, server } = await createLocal();
   global.TEST_URL = url;
-  g_server = server;
-
   setUrl(url);
 }
 async function afterAll() {
-  if (g_server) {
-    console.log('Stopping test server...');
-
-    g_server.kill('SIGTERM');
-
-    await new Promise((resolve) => {
-      const timeout = setTimeout(() => {
-        g_server.kill('SIGKILL');
-        resolve(true);
-      }, 5000);
-
-      g_server.on('exit', () => {
-        clearTimeout(timeout);
-        resolve(true);
-      });
-    });
-    console.log('Test server stopped');
-  }
+  console.log('afterAll: Stopping test server...');
+  await closeLocal();
 }
