@@ -17,11 +17,11 @@ This project, `server-control-s3`, is a tool for updating Amazon AWS instances f
 
 ### Package Manager
 
--   The `STYLE_GUIDE.md` specifies using `yarn`. However, the presence of `npm-shrinkwrap.json` suggests `npm` might be in use. I will prefer `yarn` as instructed, but be mindful of the potential for `npm`.
+-   Use `npm`
 
 ### Formatting
 
--   Run `yarn pretty` to format the code before committing. This command executes `prettier --write "src/*.js" "example/*.js" "test/*.ts"`.
+-   Run `npm pretty` to format the code before committing. This command executes `prettier --write "src/*.js" "example/*.js" "test/*.ts"`.
 
 ### Linting
 

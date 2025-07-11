@@ -9,11 +9,11 @@ This document outlines the coding style conventions for this project.
 
 ## Tools
 
-Only use yarn.
+Only use npm.
 
 ## Code Formatting
 
-Before committing any changes, run `yarn pretty` to format the code.
+Before committing any changes, run `npm run pretty` to format the code.
 
 ## Naming Conventions
 
