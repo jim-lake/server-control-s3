@@ -7,7 +7,7 @@ const HASH_LEN = '22c9b769e02eb000d4a1356136e190678e9ce524'.length;
 const INSTANCE_ID_LEN = 'i-0af730e40ca681ca2'.length;
 
 const HASH_LIST = [
-  '22c9b769e02eb000d4a1356136e190678e9ce524',
+  'ce7881f0bb5f535f55fc9cbf8111d13281832831',
   '27d81f76c5fd1e085450b621afc1bceb315921e7',
 ];
 
@@ -46,11 +46,12 @@ describe('Group Data', function () {
     const res = await request
       .get('/group_data')
       .set('x-sc-secret', 'my-super-secret-key');
-    console.log('res:', res.status);
-    console.log('instance_list:', res.body.instance_list);
     expect(res.status).to.equal(200);
     expect(res.body.LATEST).to.have.lengthOf(HASH_LEN);
     expect(res.body.InstanceId).to.have.lengthOf(INSTANCE_ID_LEN);
+    expect(res.body.instance_list).to.have.lengthOf.at.least(1);
+    console.log('instance_list:', res.body.instance_list);
+    console.log('LATEST:', res.body.LATEST);
   });
 });
 
