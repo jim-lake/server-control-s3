@@ -178,19 +178,23 @@ const asg = new aws.autoscaling.Group('server-control-test-asg', {
       },
       overrides: [
         {
-          instanceType: 't3a.micro',
+          instanceType: 't4g.nano',
           weightedCapacity: '1',
         },
         {
-          instanceType: 't3a.small',
+          instanceType: 't4g.micro',
           weightedCapacity: '1',
         },
         {
-          instanceType: 't3a.medium',
+          instanceType: 't4g.small',
           weightedCapacity: '1',
         },
         {
-          instanceType: 't3a.large',
+          instanceType: 't4g.medium',
+          weightedCapacity: '1',
+        },
+        {
+          instanceType: 't4g.large',
           weightedCapacity: '1',
         },
       ],
