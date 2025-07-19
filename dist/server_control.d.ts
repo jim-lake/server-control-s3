@@ -1,27 +1,29 @@
+import { Request, Response, NextFunction } from 'express';
+
 declare const _default: {
     init: typeof init;
     getGitCommitHash: typeof getGitCommitHash;
 };
 
 interface Config {
-    route_prefix: string;
     secret: string;
-    sc_update_url_key_name: string;
-    restart_function: () => void;
-    service_port: number;
-    http_proto: string;
-    auth_middleware: boolean | ((req: any, res: any, next: any) => void);
-    repo_dir: string;
-    console_log: (...args: any[]) => void;
-    error_log: (...args: any[]) => void;
-    update_launch_default: boolean;
-    remove_old_target: boolean;
-    remote_repo_prefix?: string;
-    metadata_opts?: any;
-    asg_name?: string;
+    routePrefix: string;
+    updateUrlKeyName: string;
+    restartFunction: () => void;
+    port: number;
+    httpProto: string;
+    authMiddleware?: (req: Request, res: Response, next: NextFunction) => void;
+    repoDir: string;
+    consoleLog: (...args: any[]) => void;
+    errorLog: (...args: any[]) => void;
+    updateLaunchDefault: boolean;
+    removeOldTarget: boolean;
+    remoteRepoPrefix?: string;
+    metadataOpts?: any;
+    asgName?: string;
     region?: string;
 }
-declare function init(app: any, config: Partial<Config>): void;
+declare function init(router: any, config: Partial<Config>): void;
 declare function getGitCommitHash(done: (err: any, result?: string) => void): void;
 
 export { _default as default, getGitCommitHash, init };

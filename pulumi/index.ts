@@ -1,18 +1,18 @@
-const aws = require('@pulumi/aws');
-const awsNative = require('@pulumi/aws-native');
-const awsx = require('@pulumi/awsx');
-const pulumi = require('@pulumi/pulumi');
-const std = require('@pulumi/std');
-const path = require('node:path');
+import * as aws from '@pulumi/aws';
+import * as awsNative from '@pulumi/aws-native';
+import * as awsx from '@pulumi/awsx';
+import * as pulumi from '@pulumi/pulumi';
+import * as std from '@pulumi/std';
+import * as path from 'node:path';
 
-const {
+import {
   VPC_NAME,
   SUBNET_NAME,
   SERVER_AMI_ID,
   CODE_BUCKET,
   SC_REPO_DIR,
   SC_UPDATE_URL,
-} = require('./config.js');
+}  from './config';
 
 const server_control = new aws.iam.Policy('server-control-test', {
   path: '/',
@@ -159,7 +159,7 @@ SC_UPDATE_URL=${SC_UPDATE_URL}
   vpcSecurityGroupIds: [group_server.id],
 });
 
-const asg = new aws.autoscaling.Group('server-control-test-asg', {
+export const asg = new aws.autoscaling.Group('server-control-test-asg', {
   desiredCapacity: 1,
   maxSize: 1,
   minSize: 1,

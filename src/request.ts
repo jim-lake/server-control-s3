@@ -9,7 +9,7 @@ import url_lib from 'url';
 
 const TIMEOUT = 15 * 1000;
 
-export function webRequest(opts: any, done: (err: any, body?: any) => void) {
+export function webRequest(opts: any, done?: (err: any, body?: any) => void) {
   if (!opts.timeout) {
     opts.timeout = TIMEOUT;
   }
@@ -62,20 +62,23 @@ export function webRequest(opts: any, done: (err: any, body?: any) => void) {
           }
         }
 
-        done(err, response_body);
+        done?.(err, response_body);
+        done = undefined;
       });
     }
   );
 
   client_req.on('error', (err: any) => {
-    done(err);
+    done?.(err);
+    done = undefined;
   });
 
   client_req.on('timeout', () => {
     client_req.destroy();
     const err = new Error('Request timed out');
     (err as any).code = 'ETIMEDOUT';
-    done(err);
+    done?.(err);
+    done = undefined;
   });
 
   if (request_body) {

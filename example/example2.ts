@@ -20,9 +20,9 @@ app.get('/dump', (req, res) => {
   res.send({ header: req.headers, query: req.query, body: req.body });
 });
 
-let metadata_opts;
+let metadataOpts;
 if (process.platform === 'darwin') {
-  metadata_opts = {
+  metadataOpts = {
     httpOptions: { connectTimeout: 5, timeout: 5 },
     maxRetries: 0,
   };
@@ -32,12 +32,14 @@ const opts = {
   secret: config.SECRET || 'secure',
   port: 80,
   region: config.AWS_REGION,
-  asg_name: config.ASG_NAME,
-  remote_repo_prefix: config.S3_REPO_PREFIX,
-  metadata_opts,
-  repo_dir: config.TEST_REPO_DIR,
+  asgName: config.ASG_NAME,
+  remoteRepoPrefix: config.S3_REPO_PREFIX,
+  metadataOpts,
+  repoDir: config.TEST_REPO_DIR,
 };
-serverControl.init(app, opts);
+const sc_router = express.Router();
+serverControl.init(sc_router, opts);
+app.use(sc_router);
 
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`);

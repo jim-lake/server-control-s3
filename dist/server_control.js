@@ -81,17 +81,20 @@ function webRequest(opts, done) {
                     // ignore
                 }
             }
-            done(err, response_body);
+            done?.(err, response_body);
+            done = undefined;
         });
     });
     client_req.on('error', (err) => {
-        done(err);
+        done?.(err);
+        done = undefined;
     });
     client_req.on('timeout', () => {
         client_req.destroy();
         const err = new Error('Request timed out');
         err.code = 'ETIMEDOUT';
-        done(err);
+        done?.(err);
+        done = undefined;
     });
     if (request_body) {
         client_req.write(request_body);
@@ -158,77 +161,49 @@ var index = {
 const MAX_WAIT_COUNT = 12;
 const SERVER_WAIT_MS = 10 * 1000;
 const DEFAULT_CONFIG = {
-    route_prefix: '',
     secret: 'secret',
-    sc_update_url_key_name: 'SC_UPDATE_URL',
-    restart_function: _defaultRestartFunction,
-    service_port: 80,
-    http_proto: 'http',
-    auth_middleware: false,
-    repo_dir: process.env.PWD || '.',
-    console_log: console.log,
-    error_log: console.error,
-    update_launch_default: true,
-    remove_old_target: true,
+    routePrefix: '',
+    updateUrlKeyName: 'SC_UPDATE_URL',
+    restartFunction: _defaultRestartFunction,
+    port: 80,
+    httpProto: 'http',
+    repoDir: process.env.PWD || '.',
+    consoleLog: console.log,
+    errorLog: console.error,
+    updateLaunchDefault: true,
+    removeOldTarget: true,
 };
 const g_config = {};
 let g_gitCommitHash = false;
 let g_updateHash = '';
-function init(app, config) {
+function init(router, config) {
     Object.assign(g_config, DEFAULT_CONFIG, config);
-    if (typeof g_config.route_prefix !== 'string') {
-        throw 'server-control route_prefix required';
-    }
-    if (!g_config.remote_repo_prefix) {
+    if (!g_config.remoteRepoPrefix) {
         throw 'server-control remote_repo_prefix required';
     }
-    g_config.route_prefix.replace(/\/$/, '');
-    g_config.remote_repo_prefix.replace(/\/$/, '');
-    asyncSeries([
-        (done) => {
-            _getAwsRegion(done);
-        },
-        (done) => {
-            getGitCommitHash(() => { });
-            const { route_prefix } = g_config;
-            if (g_config.remove_old_target) {
-                _removeOldTarget();
-            }
-            app.all(route_prefix + '/server_data', _parseQuery, _secretOrAuth, _serverData);
-            app.all(route_prefix + '/group_data', _parseQuery, _secretOrAuth, _groupData);
-            app.all(route_prefix + '/update_group', _parseQuery, _secretOrAuth, _updateGroup);
-            app.all(route_prefix + '/update_server', _parseQuery, _secretOrAuth, _updateServer);
-            done();
-        },
-    ]);
-}
-function _parseQuery(req, res, next) {
-    if (typeof req.query === 'string') {
-        const query = {};
-        req.query.split('&').forEach((key_val) => {
-            const split = key_val.split('=');
-            query[split[0]] = split[1] || '';
-        });
-        req.query = query;
+    _getAwsRegion(() => { });
+    getGitCommitHash(() => { });
+    if (g_config.removeOldTarget) {
+        _removeOldTarget();
     }
-    next();
+    router.use(_secretOrAuth);
+    router.all('/server_data', _serverData);
+    router.all('/group_data', _groupData);
+    router.all('/update_group', _updateGroup);
+    router.all('/update_server', _updateServer);
 }
 function _secretOrAuth(req, res, next) {
     if (req.headers && req.headers['x-sc-secret'] === g_config.secret) {
         next();
     }
-    else if (req.body &&
-        req.body.secret &&
-        req.body.secret === g_config.secret) {
+    else if (req.body?.secret === g_config.secret) {
         next();
     }
-    else if (req.cookies &&
-        req.cookies.secret &&
-        req.cookies.secret === g_config.secret) {
+    else if (req.cookies?.secret === g_config.secret) {
         next();
     }
-    else if (typeof g_config.auth_middleware === 'function') {
-        g_config.auth_middleware(req, res, next);
+    else if (g_config.authMiddleware) {
+        g_config.authMiddleware(req, res, next);
     }
     else {
         res.sendStatus(403);
@@ -254,15 +229,15 @@ function _groupData(req, res) {
         const body = {
             LATEST: result.latest || 'unknown',
             InstanceId: result.InstanceId || 'unknown',
-            instance_list: result.instance_list,
+            InstanceList: result.instance_list,
         };
         if (result.auto_scale_group) {
-            body.auto_scale_group = {
+            body.AutoScaleGroup = {
                 AutoScalingGroupName: result.auto_scale_group.AutoScalingGroupName,
                 LaunchTemplate: result.auto_scale_group.LaunchTemplate,
             };
             if (result.launch_template) {
-                body.launch_template = result.launch_template;
+                body.LaunchTemplate = result.launch_template;
             }
         }
         if (err) {
@@ -294,7 +269,7 @@ function _getGroupData(done) {
         (done) => {
             const opts = {
                 url: 'http://169.254.169.254/latest/meta-data/instance-id',
-                ...(g_config.metadata_opts || {}),
+                ...(g_config.metadataOpts || {}),
             };
             webRequest(opts, (err, results) => {
                 if (err) {
@@ -308,11 +283,11 @@ function _getGroupData(done) {
             const command = new clientAutoScaling.DescribeAutoScalingGroupsCommand({});
             autoscaling.send(command).then((data) => {
                 asg = data.AutoScalingGroups.find((group) => {
-                    return (group.AutoScalingGroupName === g_config.asg_name ||
+                    return (group.AutoScalingGroupName === g_config.asgName ||
                         group.Instances.find((i) => i.InstanceId === InstanceId));
                 });
                 if (!asg) {
-                    _errorLog('_getGroupData: asg not found:', g_config.asg_name);
+                    _errorLog('_getGroupData: asg not found:', g_config.asgName);
                     done('asg_not_found');
                 }
                 else {
@@ -397,20 +372,16 @@ function _getGroupData(done) {
     });
 }
 function _getServerData(instance, done) {
-    const proto = g_config.http_proto;
+    const proto = g_config.httpProto;
     const ip = instance.PrivateIpAddress;
-    const port = g_config.service_port;
-    const prefix = g_config.route_prefix;
+    const port = g_config.port;
+    const prefix = g_config.routePrefix;
     const url = `${proto}://${ip}:${port}${prefix}/server_data`;
     const opts = {
         url,
         method: 'GET',
-        headers: {
-            'x-sc-secret': g_config.secret,
-        },
-        json: {
-            secret: g_config.secret,
-        },
+        headers: { 'x-sc-secret': g_config.secret },
+        json: { secret: g_config.secret },
     };
     webRequest(opts, (err, body) => {
         if (err) {
@@ -421,7 +392,7 @@ function _getServerData(instance, done) {
 }
 function _updateServer(req, res) {
     res.header('Cache-Control', 'no-cache, no-store, must-revalidate');
-    const hash = req.body.hash || req.query.hash;
+    const hash = req.body?.hash ?? req.query.hash;
     if (hash) {
         _updateSelf(hash, (err) => {
             if (err) {
@@ -429,7 +400,7 @@ function _updateServer(req, res) {
             }
             else {
                 res.send('Restarting server');
-                g_config.restart_function();
+                g_config.restartFunction();
             }
         });
     }
@@ -438,8 +409,8 @@ function _updateServer(req, res) {
     }
 }
 function _updateSelf(hash, done) {
-    const dir = g_config.repo_dir;
-    const url = `${g_config.remote_repo_prefix}/${hash}.tar.gz`;
+    const dir = g_config.repoDir;
+    const url = `${g_config.remoteRepoPrefix}/${hash}.tar.gz`;
     const cmd = `cd ${dir} && ${__dirname}/../scripts/update_to_hash.sh ${url}`;
     child_process__namespace.exec(cmd, (err, stdout, stderr) => {
         if (err) {
@@ -453,7 +424,7 @@ function _updateSelf(hash, done) {
     });
 }
 function _removeOldTarget() {
-    const dir = g_config.repo_dir;
+    const dir = g_config.repoDir;
     const cmd = `${__dirname}/../scripts/remove_old_target.sh ${dir}`;
     child_process__namespace.exec(cmd, (err, stdout, stderr) => {
         if (err) {
@@ -463,11 +434,11 @@ function _removeOldTarget() {
 }
 function _updateGroup(req, res) {
     res.header('Cache-Control', 'no-cache, no-store, must-revalidate');
-    const hash = req.body.hash || req.query.hash;
+    const hash = req.body?.hash ?? req.query.hash;
     if (hash) {
-        const url = `${g_config.remote_repo_prefix}/${hash}.tar.gz`;
-        const key_name = g_config.sc_update_url_key_name;
-        const ami_id = req.body.ami_id || req.query.ami_id || false;
+        const url = `${g_config.remoteRepoPrefix}/${hash}.tar.gz`;
+        const key_name = g_config.updateUrlKeyName;
+        const ami_id = req.body?.ami_id ?? req.query.ami_id ?? false;
         const ec2 = _getEC2();
         let group_data = false;
         let old_data = '';
@@ -519,7 +490,7 @@ function _updateGroup(req, res) {
                 });
             },
             (done) => {
-                if (g_config.update_launch_default) {
+                if (g_config.updateLaunchDefault) {
                     const opts = {
                         DefaultVersion: String(new_version),
                         LaunchTemplateId: group_data.launch_template.LaunchTemplateId,
@@ -573,7 +544,7 @@ function _updateGroup(req, res) {
                 body._msg =
                     'Successful updating all servers, restarting this server.';
                 res.send(body);
-                g_config.restart_function();
+                g_config.restartFunction();
             }
         });
     }
@@ -584,21 +555,16 @@ function _updateGroup(req, res) {
 function _updateInstance(hash, instance, done) {
     asyncSeries([
         (done) => {
-            const proto = g_config.http_proto;
+            const proto = g_config.httpProto;
             const ip = instance.PrivateIpAddress;
-            const port = g_config.service_port;
-            const prefix = g_config.route_prefix;
+            const port = g_config.port;
+            const prefix = g_config.routePrefix;
             const url = `${proto}://${ip}:${port}${prefix}/update_server`;
             const opts = {
                 url,
                 method: 'GET',
-                headers: {
-                    'x-sc-secret': g_config.secret,
-                },
-                json: {
-                    hash,
-                    secret: g_config.secret,
-                },
+                headers: { 'x-sc-secret': g_config.secret },
+                json: { hash, secret: g_config.secret },
             };
             webRequest(opts, done);
         },
@@ -629,7 +595,7 @@ function _waitForServer(params, done) {
     });
 }
 function _getLatest(done) {
-    const url = g_config.remote_repo_prefix + '/LATEST';
+    const url = g_config.remoteRepoPrefix + '/LATEST';
     fetchFileContents(url, { region: g_config.region }, (err, body) => {
         done(err, body && body.trim());
     });
@@ -639,7 +605,7 @@ function getGitCommitHash(done) {
         done && done(null, g_gitCommitHash);
     }
     else {
-        const file = node_path.join(g_config.repo_dir, '.git_commit_hash');
+        const file = node_path.join(g_config.repoDir, '.git_commit_hash');
         fs__namespace.readFile(file, 'utf8', (err, result) => {
             if (!err && !result) {
                 err = 'no_result';
@@ -660,7 +626,7 @@ function _getAwsRegion(done) {
     }
     const opts = {
         url: 'http://169.254.169.254/latest/dynamic/instance-identity/document',
-        ...(g_config.metadata_opts || {}),
+        ...(g_config.metadataOpts || {}),
     };
     webRequest(opts, (err, results) => {
         if (err) {
@@ -677,7 +643,6 @@ function _getAwsRegion(done) {
                 _errorLog('_getAwsRegion: threw:', e);
             }
         }
-        done();
     });
 }
 function _getAutoscaling() {
@@ -687,10 +652,10 @@ function _getEC2() {
     return new clientEc2.EC2Client({ region: g_config.region });
 }
 function _errorLog(...args) {
-    g_config.error_log(...args);
+    g_config.errorLog(...args);
 }
 function _defaultRestartFunction() {
-    g_config.console_log('server-control: updated to: ', g_updateHash, 'restarting...');
+    g_config.consoleLog('server-control: updated to: ', g_updateHash, 'restarting...');
     setTimeout(function () {
         process.exit(0);
     }, 100);
