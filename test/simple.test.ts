@@ -49,8 +49,8 @@ describe('Group Data', function () {
     expect(res.status).to.equal(200);
     expect(res.body.LATEST).to.have.lengthOf(HASH_LEN);
     expect(res.body.InstanceId).to.have.lengthOf(INSTANCE_ID_LEN);
-    expect(res.body.instance_list).to.have.lengthOf.at.least(1);
-    console.log('instance_list:', res.body.instance_list);
+    expect(res.body.InstanceList).to.have.lengthOf.at.least(1);
+    console.log('InstanceList:', res.body.InstanceList);
     console.log('LATEST:', res.body.LATEST);
   });
 });
@@ -87,11 +87,11 @@ describe('Update Group', function () {
       .get('/group_data')
       .set('x-sc-secret', 'my-super-secret-key');
     console.log('res:', res.status);
-    console.log('instance_list:', res.body.instance_list);
+    console.log('InstanceList:', res.body.InstanceList);
     expect(res.status).to.equal(200);
     expect(res.body.LATEST).to.have.lengthOf(HASH_LEN);
-    expect(res.body.instance_list).to.have.lengthOf.at.least(1);
-    existing_hash = res.body.instance_list[0].git_commit_hash;
+    expect(res.body.InstanceList).to.have.lengthOf.at.least(1);
+    existing_hash = res.body.InstanceList[0].git_commit_hash;
     console.log('existing_hash:', existing_hash);
     expect(existing_hash.length).to.equal(HASH_LEN);
     new_hash = existing_hash == HASH_LIST[0] ? HASH_LIST[1] : HASH_LIST[0];
@@ -119,12 +119,12 @@ describe('Update Group', function () {
       .get('/group_data')
       .set('x-sc-secret', 'my-super-secret-key');
     console.log('res:', res.status);
-    console.log('instance_list:', res.body.instance_list);
+    console.log('InstanceList:', res.body.InstanceList);
     expect(res.status).to.equal(200);
     expect(res.status).to.equal(200);
     expect(res.body.LATEST).to.have.lengthOf(HASH_LEN);
-    expect(res.body.instance_list).to.have.lengthOf.at.least(1);
-    const found_hash = res.body.instance_list[0].git_commit_hash;
+    expect(res.body.InstanceList).to.have.lengthOf.at.least(1);
+    const found_hash = res.body.InstanceList[0].git_commit_hash;
     expect(found_hash).to.equal(new_hash);
   });
 });
