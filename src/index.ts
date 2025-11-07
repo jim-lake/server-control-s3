@@ -26,6 +26,8 @@ export default {
 
 const MAX_WAIT_COUNT = 12;
 const SERVER_WAIT_MS = 10 * 1000;
+const SERVER_UPDATE_TIMEOUT = 2 * 60 * 1000;
+
 export interface Config {
   secret: string;
   routePrefix: string;
@@ -521,6 +523,7 @@ function _updateInstance(
           url,
           method: 'GET',
           headers: { 'x-sc-secret': g_config.secret },
+          timeout: SERVER_UPDATE_TIMEOUT,
           json: { hash, secret: g_config.secret },
         };
         request.webRequest(opts, done);

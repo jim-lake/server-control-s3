@@ -160,6 +160,7 @@ var index = {
 };
 const MAX_WAIT_COUNT = 12;
 const SERVER_WAIT_MS = 10 * 1000;
+const SERVER_UPDATE_TIMEOUT = 2 * 60 * 1000;
 const DEFAULT_CONFIG = {
     secret: 'secret',
     routePrefix: '',
@@ -564,6 +565,7 @@ function _updateInstance(hash, instance, done) {
                 url,
                 method: 'GET',
                 headers: { 'x-sc-secret': g_config.secret },
+                timeout: SERVER_UPDATE_TIMEOUT,
                 json: { hash, secret: g_config.secret },
             };
             webRequest(opts, done);
