@@ -511,7 +511,8 @@ function _updateGroup(req, res) {
             (done) => {
                 let group_err;
                 asyncEach(group_data.instance_list, (instance, done) => {
-                    if (instance.InstanceId === group_data.InstanceId) {
+                    if (instance.InstanceId === group_data.InstanceId ||
+                        instance.State?.Name !== 'running') {
                         done();
                     }
                     else {

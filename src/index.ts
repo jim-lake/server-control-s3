@@ -452,7 +452,10 @@ function _updateGroup(req: Request, res: Response) {
           asyncEach(
             group_data.instance_list,
             (instance: any, done: (err?: any) => void) => {
-              if (instance.InstanceId === group_data.InstanceId) {
+              if (
+                instance.InstanceId === group_data.InstanceId ||
+                instance.State?.Name !== 'running'
+              ) {
                 done();
               } else {
                 _updateInstance(hash, instance, (err) => {
