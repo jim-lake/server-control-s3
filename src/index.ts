@@ -66,7 +66,7 @@ let g_updateHash = '';
 export function init(router: any, config: Partial<Config>) {
   Object.assign(g_config, DEFAULT_CONFIG, config);
   if (!g_config.remoteRepoPrefix) {
-    throw 'server-control remote_repo_prefix required';
+    throw 'server-control remoteRepoPrefix required';
   }
 
   _getAwsRegion(() => {});
@@ -74,11 +74,10 @@ export function init(router: any, config: Partial<Config>) {
   if (g_config.removeOldTarget) {
     _removeOldTarget();
   }
-  router.use(_secretOrAuth);
-  router.all('/server_data', _serverData);
-  router.all('/group_data', _groupData);
-  router.all('/update_group', _updateGroup);
-  router.all('/update_server', _updateServer);
+  router.all('/server_data', _secretOrAuth, _serverData);
+  router.all('/group_data', _secretOrAuth, _groupData);
+  router.all('/update_group', _secretOrAuth, _updateGroup);
+  router.all('/update_server', _secretOrAuth, _updateServer);
 }
 function _secretOrAuth(req: Request, res: Response, next: NextFunction) {
   if (req.headers && req.headers['x-sc-secret'] === g_config.secret) {
