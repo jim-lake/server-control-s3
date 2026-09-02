@@ -45,6 +45,7 @@ export interface Config {
   metadataOpts?: any;
   asgName?: string;
   region?: string;
+  s3region?: string;
 }
 const DEFAULT_CONFIG: Config = {
   secret: 'secret',
@@ -394,7 +395,7 @@ function _updateGroup(req: Request, res: Response) {
           });
         },
         (done: (err?: any) => void) => {
-          request.headUrl(url, { region: g_config.region }, (err: any) => {
+          request.headUrl(url, { region: g_config.s3region }, (err: any) => {
             if (err) {
               _errorLog('_updateGroup: head url:', url, 'err:', err);
               err = 'url_not_found';
@@ -565,7 +566,7 @@ function _getLatest(done: (err: any, body?: string) => void) {
   const url = g_config.remoteRepoPrefix + '/LATEST';
   request.fetchFileContents(
     url,
-    { region: g_config.region },
+    { region: g_config.s3region },
     (err: any, body?: string) => {
       done(err, body && body.trim());
     }
@@ -591,6 +592,7 @@ export function getGitCommitHash(done: (err: any, result?: string) => void) {
 }
 function _getAwsRegion(done: (err?: any) => void) {
   if (g_config.region) {
+    g_config.s3region ??= g_config.region;
     return done();
   }
   const opts = {
@@ -610,6 +612,7 @@ function _getAwsRegion(done: (err?: any) => void) {
         _errorLog('_getAwsRegion: threw:', e);
       }
     }
+    g_config.s3region ??= g_config.region;
     done();
   });
 }

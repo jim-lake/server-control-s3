@@ -22,6 +22,7 @@ interface Config {
     metadataOpts?: any;
     asgName?: string;
     region?: string;
+    s3region?: string;
 }
 declare function init(router: any, config: Partial<Config>): void;
 declare function getGitCommitHash(done: (err: any, result?: string) => void): void;

@@ -460,7 +460,7 @@ function _updateGroup(req, res) {
                 });
             },
             (done) => {
-                headUrl(url, { region: g_config.region }, (err) => {
+                headUrl(url, { region: g_config.s3region }, (err) => {
                     if (err) {
                         _errorLog('_updateGroup: head url:', url, 'err:', err);
                         err = 'url_not_found';
@@ -598,7 +598,7 @@ function _waitForServer(params, done) {
 }
 function _getLatest(done) {
     const url = g_config.remoteRepoPrefix + '/LATEST';
-    fetchFileContents(url, { region: g_config.region }, (err, body) => {
+    fetchFileContents(url, { region: g_config.s3region }, (err, body) => {
         done(err, body && body.trim());
     });
 }
@@ -624,6 +624,7 @@ function getGitCommitHash(done) {
 }
 function _getAwsRegion(done) {
     if (g_config.region) {
+        g_config.s3region ??= g_config.region;
         return done();
     }
     const opts = {
@@ -645,6 +646,7 @@ function _getAwsRegion(done) {
                 _errorLog('_getAwsRegion: threw:', e);
             }
         }
+        g_config.s3region ??= g_config.region;
     });
 }
 function _getAutoscaling() {
