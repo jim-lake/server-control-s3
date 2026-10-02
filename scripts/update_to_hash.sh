@@ -58,7 +58,7 @@ fi
 rm output.tar.gz
 
 echo " - npm ci"
-npm ci
+npm ci --omit=dev
 if [ "$?" -ne 0 ]; then
   echo " - npm ci failed"
   rm -rf "$TMP_DIR"
