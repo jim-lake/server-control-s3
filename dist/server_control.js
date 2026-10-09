@@ -113,12 +113,15 @@ function headUrl(url, opts, done) {
         const parts = url.match(/s3:\/\/([^/]*)\/(.*)/);
         const Bucket = parts && parts[1];
         const Key = parts && parts[2];
-        const s3 = new clientS3.S3Client({ region: opts.region });
+        const s3 = new clientS3.S3Client({
+            region: opts.region,
+            ...(opts.s3ClientConfig || {}),
+        });
         const command = new clientS3.HeadObjectCommand({
             Bucket: Bucket || '',
             Key: Key || '',
         });
-        s3.send(command).then((data) => done(null, data), (err) => done(err));
+        s3.send(command).then((data) => done?.(null, data), (err) => done?.(err));
     }
 }
 function fetchFileContents(url, opts, done) {
@@ -133,7 +136,10 @@ function fetchFileContents(url, opts, done) {
         const parts = url.match(/s3:\/\/([^/]*)\/(.*)/);
         const Bucket = parts && parts[1];
         const Key = parts && parts[2];
-        const s3 = new clientS3.S3Client({ region: opts.region });
+        const s3 = new clientS3.S3Client({
+            region: opts.region,
+            ...(opts.s3ClientConfig || {}),
+        });
         const command = new clientS3.GetObjectCommand({
             Bucket: Bucket || '',
             Key: Key || '',
@@ -145,12 +151,12 @@ function fetchFileContents(url, opts, done) {
                 body += chunk.toString();
             });
             stream.on('end', () => {
-                done(null, body);
+                done?.(null, body);
             });
             stream.on('error', (err) => {
-                done(err);
+                done?.(err);
             });
-        }, (err) => done(err));
+        }, (err) => done?.(err));
     }
 }
 
@@ -460,7 +466,10 @@ function _updateGroup(req, res) {
                 });
             },
             (done) => {
-                headUrl(url, { region: g_config.s3region }, (err) => {
+                headUrl(url, {
+                    region: g_config.s3region,
+                    s3ClientConfig: g_config.s3ClientConfig,
+                }, (err) => {
                     if (err) {
                         _errorLog('_updateGroup: head url:', url, 'err:', err);
                         err = 'url_not_found';
@@ -598,7 +607,7 @@ function _waitForServer(params, done) {
 }
 function _getLatest(done) {
     const url = g_config.remoteRepoPrefix + '/LATEST';
-    fetchFileContents(url, { region: g_config.s3region }, (err, body) => {
+    fetchFileContents(url, { region: g_config.s3region, s3ClientConfig: g_config.s3ClientConfig }, (err, body) => {
         done(err, body && body.trim());
     });
 }
@@ -650,10 +659,16 @@ function _getAwsRegion(done) {
     });
 }
 function _getAutoscaling() {
-    return new clientAutoScaling.AutoScalingClient({ region: g_config.region });
+    return new clientAutoScaling.AutoScalingClient({
+        region: g_config.region,
+        ...(g_config.autoScalingClientConfig || {}),
+    });
 }
 function _getEC2() {
-    return new clientEc2.EC2Client({ region: g_config.region });
+    return new clientEc2.EC2Client({
+        region: g_config.region,
+        ...(g_config.ec2ClientConfig || {}),
+    });
 }
 function _errorLog(...args) {
     g_config.errorLog(...args);

@@ -2,12 +2,18 @@ import {
   S3Client,
   GetObjectCommand,
   HeadObjectCommand,
+  type S3ClientConfig,
 } from '@aws-sdk/client-s3';
 import http from 'http';
 import https from 'https';
 import url_lib from 'url';
 
 const TIMEOUT = 15 * 1000;
+
+export interface S3RequestOpts {
+  region?: string;
+  s3ClientConfig?: S3ClientConfig;
+}
 
 export function webRequest(opts: any, done?: (err: any, body?: any) => void) {
   if (!opts.timeout) {
@@ -90,8 +96,8 @@ export function webRequest(opts: any, done?: (err: any, body?: any) => void) {
 
 export function headUrl(
   url: string,
-  opts: any,
-  done: (err: any, data?: any) => void
+  opts: S3RequestOpts | ((err: any, data?: any) => void),
+  done?: (err: any, data?: any) => void
 ) {
   if (typeof opts === 'function') {
     done = opts;
@@ -103,21 +109,24 @@ export function headUrl(
     const parts = url.match(/s3:\/\/([^/]*)\/(.*)/);
     const Bucket = parts && parts[1];
     const Key = parts && parts[2];
-    const s3 = new S3Client({ region: opts.region });
+    const s3 = new S3Client({
+      region: opts.region,
+      ...(opts.s3ClientConfig || {}),
+    });
     const command = new HeadObjectCommand({
       Bucket: Bucket || '',
       Key: Key || '',
     });
     s3.send(command).then(
-      (data: any) => done(null, data),
-      (err: any) => done(err)
+      (data: any) => done?.(null, data),
+      (err: any) => done?.(err)
     );
   }
 }
 export function fetchFileContents(
   url: string,
-  opts: any,
-  done: (err: any, body?: string) => void
+  opts: S3RequestOpts | ((err: any, body?: string) => void),
+  done?: (err: any, body?: string) => void
 ) {
   if (typeof opts === 'function') {
     done = opts;
@@ -129,7 +138,10 @@ export function fetchFileContents(
     const parts = url.match(/s3:\/\/([^/]*)\/(.*)/);
     const Bucket = parts && parts[1];
     const Key = parts && parts[2];
-    const s3 = new S3Client({ region: opts.region });
+    const s3 = new S3Client({
+      region: opts.region,
+      ...(opts.s3ClientConfig || {}),
+    });
     const command = new GetObjectCommand({
       Bucket: Bucket || '',
       Key: Key || '',
@@ -142,13 +154,13 @@ export function fetchFileContents(
           body += chunk.toString();
         });
         stream.on('end', () => {
-          done(null, body);
+          done?.(null, body);
         });
         stream.on('error', (err: any) => {
-          done(err);
+          done?.(err);
         });
       },
-      (err: any) => done(err)
+      (err: any) => done?.(err)
     );
   }
 }

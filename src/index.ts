@@ -6,6 +6,7 @@ import type { Request, Response, NextFunction } from 'express';
 import {
   AutoScalingClient,
   DescribeAutoScalingGroupsCommand,
+  type AutoScalingClientConfig,
 } from '@aws-sdk/client-auto-scaling';
 import {
   EC2Client,
@@ -13,11 +14,13 @@ import {
   DescribeLaunchTemplateVersionsCommand,
   CreateLaunchTemplateVersionCommand,
   ModifyLaunchTemplateCommand,
+  type EC2ClientConfig,
 } from '@aws-sdk/client-ec2';
 import * as child_process from 'node:child_process';
 import * as fs from 'node:fs';
 import { join as pathJoin } from 'node:path';
 import * as request from './request';
+import type { S3ClientConfig } from '@aws-sdk/client-s3';
 
 export default {
   init,
@@ -46,6 +49,9 @@ export interface Config {
   asgName?: string;
   region?: string;
   s3region?: string;
+  ec2ClientConfig?: EC2ClientConfig;
+  autoScalingClientConfig?: AutoScalingClientConfig;
+  s3ClientConfig?: S3ClientConfig;
 }
 const DEFAULT_CONFIG: Config = {
   secret: 'secret',
@@ -395,13 +401,20 @@ function _updateGroup(req: Request, res: Response) {
           });
         },
         (done: (err?: any) => void) => {
-          request.headUrl(url, { region: g_config.s3region }, (err: any) => {
-            if (err) {
-              _errorLog('_updateGroup: head url:', url, 'err:', err);
-              err = 'url_not_found';
+          request.headUrl(
+            url,
+            {
+              region: g_config.s3region,
+              s3ClientConfig: g_config.s3ClientConfig,
+            },
+            (err: any) => {
+              if (err) {
+                _errorLog('_updateGroup: head url:', url, 'err:', err);
+                err = 'url_not_found';
+              }
+              done(err);
             }
-            done(err);
-          });
+          );
         },
         (done: (err?: any) => void) => {
           const new_data = `${old_data}${key_name}=${url}\n`;
@@ -566,7 +579,7 @@ function _getLatest(done: (err: any, body?: string) => void) {
   const url = g_config.remoteRepoPrefix + '/LATEST';
   request.fetchFileContents(
     url,
-    { region: g_config.s3region },
+    { region: g_config.s3region, s3ClientConfig: g_config.s3ClientConfig },
     (err: any, body?: string) => {
       done(err, body && body.trim());
     }
@@ -618,10 +631,16 @@ function _getAwsRegion(done: (err?: any) => void) {
 }
 
 function _getAutoscaling() {
-  return new AutoScalingClient({ region: g_config.region });
+  return new AutoScalingClient({
+    region: g_config.region,
+    ...(g_config.autoScalingClientConfig || {}),
+  });
 }
 function _getEC2() {
-  return new EC2Client({ region: g_config.region });
+  return new EC2Client({
+    region: g_config.region,
+    ...(g_config.ec2ClientConfig || {}),
+  });
 }
 function _errorLog(...args: any[]) {
   g_config.errorLog(...args);

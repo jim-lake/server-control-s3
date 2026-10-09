@@ -1,6 +1,6 @@
 {
   "name": "server-control-s3",
-  "version": "1.1.6",
+  "version": "1.1.7",
   "author": {
     "name": "Jim Lake"
   },
@@ -25,10 +25,10 @@
   "scripts": {
     "build": "rm -rf dist && rollup -c",
     "lint": "eslint src && eslint test",
-    "ts-check": "tsc --noEmit",
+    "ts:check": "tsc --noEmit",
     "pretty": "prettier --write \"src/*.ts\" \"example/*.js\" \"test/*.ts\"",
     "test": "npm run build && npm run test-only",
-    "test-only": "NODE_OPTIONS='--import=tsx' mocha --require test/local_setup.ts \"test/*.test.ts\""
+    "test:only": "NODE_OPTIONS='--import=tsx' mocha --require test/local_setup.ts \"test/*.test.ts\""
   },
   "dependencies": {
     "@aws-sdk/client-auto-scaling": "^3.525.0",
